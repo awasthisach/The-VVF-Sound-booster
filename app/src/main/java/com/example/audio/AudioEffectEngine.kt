@@ -219,7 +219,17 @@ class AudioEffectEngine private constructor() {
         // 4. Reverb Presets
         effects.reverb?.let { r ->
             try {
-                if (profile.reverbPreset in 1..6) {
+                if (profile.reverbIntensity > 0f) {
+                    r.enabled = true
+                    val calcDecay = (100 + (profile.reverbIntensity / 1000f) * 4900f).toInt()
+                    r.decayTime = calcDecay
+                    try {
+                        val calcLevel = (-9000 + (profile.reverbIntensity / 1000f) * 9000f).toInt().toShort()
+                        r.reverbLevel = calcLevel
+                    } catch (e: Exception) {
+                        // Some older versions or devices do not fully support changing reverbLevel
+                    }
+                } else if (profile.reverbPreset in 1..6) {
                     r.enabled = true
                     when (profile.reverbPreset) {
                         1 -> r.decayTime = 1000 // Small Room

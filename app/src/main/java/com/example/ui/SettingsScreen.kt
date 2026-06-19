@@ -218,6 +218,7 @@ fun SettingsScreen(viewModel: EqViewModel) {
                     )
                 }
             }
+        }
 
         // 4. Notification Access Manager Card
         Card(

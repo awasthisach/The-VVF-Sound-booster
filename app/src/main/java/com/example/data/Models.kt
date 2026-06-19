@@ -25,6 +25,7 @@ data class EqProfile(
     val bassBoost: Float = 0f, // 0 to 1000 % strength (milli-percent)
     val virtualizer: Float = 0f, // 0 to 1000 % strength (milli-percent)
     val reverbPreset: Int = 0, // 0 = None, 1 = Small Room, 2 = Medium Room, 3 = Large Room, 4 = Medium Hall, 5 = Large Hall, 6 = Plate
+    val reverbIntensity: Float = 0f, // 0 to 1000 % custom dynamic intensity (milli-percent)
     
     // Equal Loudness
     val equalLoudnessEnabled: Boolean = false,

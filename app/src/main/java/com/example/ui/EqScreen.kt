@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -156,10 +157,13 @@ fun EqScreen(viewModel: EqViewModel) {
 
     val scope = rememberCoroutineScope()
 
+    val mainScrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF1C1B1F))
+            .verticalScroll(mainScrollState)
             .padding(16.dp)
     ) {
         // 1. Header (Active Device Indicator)
@@ -754,6 +758,88 @@ fun EqScreen(viewModel: EqViewModel) {
                 modifier = Modifier.height(38.dp).testTag("flat_reset_button")
             ) {
                 Text(text = "फ़्लैट रीसेट", color = Color(0xFFE6E1E5), fontSize = 12.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .testTag("eq_quick_enhancer_card"),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930)),
+            border = BorderStroke(1.dp, Color(0xFF49454F))
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.Tune, contentDescription = "Quick Sliders", tint = Color(0xFFD0BCFF))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "त्वरित प्रभाव (Quick Bass & Reverb Sliders)",
+                        color = Color(0xFFE6E1E5),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Bass Enhancement Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "बास बूस्ट (Bass Enhancement)", color = Color(0xFFE6E1E5), fontSize = 12.sp)
+                    Text(
+                        text = String.format(Locale.US, "%.0f%%", currentProfile.bassBoost / 10f),
+                        color = Color(0xFFD0BCFF),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Slider(
+                    value = currentProfile.bassBoost,
+                    onValueChange = { viewModel.updateBassBoost(it) },
+                    valueRange = 0f..1000f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFD0BCFF),
+                        activeTrackColor = Color(0xFFD0BCFF),
+                        inactiveTrackColor = Color(0xFF49454F)
+                    ),
+                    modifier = Modifier.height(24.dp).testTag("eq_screen_bass_slider")
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Reverb Intensity Slider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "रीवरब तीव्रता (Reverb Intensity)", color = Color(0xFFE6E1E5), fontSize = 12.sp)
+                    Text(
+                        text = String.format(Locale.US, "%.0f%%", currentProfile.reverbIntensity / 10f),
+                        color = Color(0xFFD0BCFF),
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Slider(
+                    value = currentProfile.reverbIntensity,
+                    onValueChange = { viewModel.updateReverbIntensity(it) },
+                    valueRange = 0f..1000f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFD0BCFF),
+                        activeTrackColor = Color(0xFFD0BCFF),
+                        inactiveTrackColor = Color(0xFF49454F)
+                    ),
+                    modifier = Modifier.height(24.dp).testTag("eq_screen_reverb_slider")
+                )
             }
         }
     }

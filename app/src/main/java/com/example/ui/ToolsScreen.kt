@@ -354,8 +354,9 @@ fun ToolsScreen(viewModel: EqViewModel) {
                 Spacer(modifier = Modifier.height(14.dp))
 
                 val reverbPresets = listOf("None (बंद)", "Small Room (कमरा)", "Medium Room (हॉल)", "Large Room (बड़ा कमरा)", "Medium Hall (बड़ा हॉल)", "Large Hall (थिएटर)", "Plate Reverb")
-                var selectedPresetIdx by remember { mutableStateOf(currentProfile.reverbPreset) }
+                val selectedPresetIdx = currentProfile.reverbPreset.coerceIn(0, 6)
 
+                Text(text = "रीवरब प्रीसेट (Reverb Preset)", color = Color(0xFFE6E1E5), fontSize = 11.sp, modifier = Modifier.padding(bottom = 6.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -365,13 +366,14 @@ fun ToolsScreen(viewModel: EqViewModel) {
                 ) {
                     var expanded by remember { mutableStateOf(false) }
                     Text(
-                        text = reverbPresets[selectedPresetIdx.coerceIn(0, 6)],
+                        text = reverbPresets[selectedPresetIdx],
                         color = Color(0xFFE6E1E5),
                         fontSize = 13.sp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { expanded = !expanded }
                             .padding(14.dp)
+                            .testTag("reverb_preset_text")
                     )
 
                     DropdownMenu(
@@ -383,7 +385,6 @@ fun ToolsScreen(viewModel: EqViewModel) {
                             DropdownMenuItem(
                                 text = { Text(text = name, color = Color(0xFFE6E1E5)) },
                                 onClick = {
-                                    selectedPresetIdx = index
                                     viewModel.updateReverb(index)
                                     expanded = false
                                 }
@@ -391,6 +392,25 @@ fun ToolsScreen(viewModel: EqViewModel) {
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Reverb Intensity Slider
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "रीवरब तीव्रता (Reverb Intensity)", color = Color(0xFFE6E1E5), fontSize = 13.sp)
+                    Text(text = String.format(Locale.US, "%.0f%%", currentProfile.reverbIntensity / 10f), color = Color(0xFFD0BCFF), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                }
+                Slider(
+                    value = currentProfile.reverbIntensity,
+                    onValueChange = { viewModel.updateReverbIntensity(it) },
+                    valueRange = 0f..1000f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Color(0xFFD0BCFF),
+                        activeTrackColor = Color(0xFFD0BCFF),
+                        inactiveTrackColor = Color(0xFF49454F)
+                    ),
+                    modifier = Modifier.testTag("reverb_intensity_slider")
+                )
             }
         }
 

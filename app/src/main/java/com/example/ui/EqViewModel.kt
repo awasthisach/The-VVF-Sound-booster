@@ -530,7 +530,23 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     }
 
     fun updateReverb(preset: Int) {
-        val updated = _currentProfile.value.copy(reverbPreset = preset)
+        val intensity = when (preset) {
+            1 -> 200f
+            2 -> 300f
+            3 -> 500f
+            4 -> 600f
+            5 -> 1000f
+            6 -> 400f
+            else -> 0f
+        }
+        val updated = _currentProfile.value.copy(reverbPreset = preset, reverbIntensity = intensity)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
+    }
+
+    fun updateReverbIntensity(strength: Float) {
+        val updated = _currentProfile.value.copy(reverbIntensity = strength)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
         saveActiveProfileToDb(updated)
@@ -721,11 +737,6 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     fun toggleLegacyMode(enabled: Boolean) {
         _legacyMode.value = enabled
         audioEngine.setLegacyMode(enabled)
-    }
-
-    fun toggleEnhancedDetection(enabled: Boolean) {
-        _enhancedDetection.value = enabled
-        audioEngine.setEnhancedPolling(enabled)
     }
 
     fun updateVisualizerStyle(style: String) {
