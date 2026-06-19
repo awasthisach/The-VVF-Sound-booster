@@ -653,7 +653,7 @@ fun EqScreen(viewModel: EqViewModel) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
+                .height(220.dp)
                 .background(Color(0xFF2B2930), RoundedCornerShape(24.dp))
                 .border(1.dp, Color(0xFF49454F), RoundedCornerShape(24.dp))
                 .padding(vertical = 12.dp)

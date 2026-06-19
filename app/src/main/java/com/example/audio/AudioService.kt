@@ -97,7 +97,7 @@ class AudioService : Service() {
         }
 
         return builder
-            .setContentTitle("The VVF Sound booster")
+            .setContentTitle("Vivad Sound Equalizer")
             .setContentText("System-wide audio optimization is active.")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setContentIntent(pendingIntent)

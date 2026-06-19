@@ -249,7 +249,7 @@ fun PersistentDashboard(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "VVF ENGINE",
+                    text = "VIVAD ENGINE",
                     color = Color(0xFFE6E1E5),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
