@@ -74,11 +74,15 @@ class MainActivity : ComponentActivity() {
         }
 
         // 3. Launch foreground equalizer audio engine
-        val serviceIntent = Intent(this, AudioService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
+        try {
+            val serviceIntent = Intent(this, AudioService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to start AudioService cleanly: ${e.message}", e)
         }
 
         setContent {
@@ -89,9 +93,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
-                        .statusBarsPadding()
-                        .navigationBarsPadding(),
+                        .background(MaterialTheme.colorScheme.background),
                     topBar = {
                         PersistentDashboard(serviceStats = serviceStats)
                     },
