@@ -1,0 +1,6 @@
+{
+  "name": "The VVF Sound booster",
+  "description": "एक शक्तिशाली सिस्टम-वाइड ऑडियो इक्वलाइज़र, ऑटोईक्यु सपोर्ट, रीवर्ब, बास ट्यूनर और डायनामिक लिमिटर ऐप, जो अब लाइव सर्विस रिसोर्स मॉनिटर और समृद्ध भारतीय संगीत प्रीसेट्स (शास्त्रीय, सूफ़ी, भक्ति और बॉलीवुड) के साथ आता है।",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

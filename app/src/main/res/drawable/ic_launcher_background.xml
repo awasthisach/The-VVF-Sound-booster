@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Deep Cosmic Gradient Background -->
+    <path
+        android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="108"
+                android:endY="108"
+                android:type="linear">
+                <item android:color="#0A0915" android:offset="0.0" />
+                <item android:color="#12102B" android:offset="0.5" />
+                <item android:color="#1B1744" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Subtle elegant golden decorative lines representing cosmic alignment -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,2C25.28,2 2,25.28 2,54C2,82.72 25.28,106 54,106C82.72,106 106,82.72 106,54"
+        android:strokeWidth="0.5"
+        android:strokeColor="#30FFB300" />
+</vector>
