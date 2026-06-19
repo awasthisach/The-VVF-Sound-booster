@@ -42,6 +42,12 @@ data class EqProfile(
     val limiterAttackMs: Float = 5.0f,
     val limiterReleaseMs: Float = 50.0f,
     
+    // Automated Gain Control
+    val automatedGainControlEnabled: Boolean = false,
+    
+    // Master Normalization
+    val masterNormalizationEnabled: Boolean = false,
+    
     // Attenuation & Channel Balance
     val autoAttenuationEnabled: Boolean = true,
     val manualAttenuationDb: Float = 0f,

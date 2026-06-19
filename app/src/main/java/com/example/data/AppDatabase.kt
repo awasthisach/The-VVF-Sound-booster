@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-@Database(entities = [EqProfile::class, DeviceMapping::class], version = 2, exportSchema = false)
+@Database(entities = [EqProfile::class, DeviceMapping::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eqDao(): EqDao
 

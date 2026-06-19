@@ -269,7 +269,40 @@ class AudioEffectEngine private constructor() {
 
     private fun buildDynamicsConfig(profile: EqProfile): DynamicsProcessing.Config? {
         try {
-            val attenuationDb = if (profile.autoAttenuationEnabled) {
+            val attenuationDb = if (profile.masterNormalizationEnabled) {
+                // Calculate total potential gain overhead from the active preset components
+                val maxBandBoost = profile.toBandArray().maxOrNull()?.coerceAtLeast(0f) ?: 0f
+                val bassBoostDb = (profile.bassBoost / 1000f) * 12.0f // up to 12dB boost
+                val bassTunerDb = if (profile.bassTunerPostGain > 0) profile.bassTunerPostGain else 0f
+                val virtualizerDb = (profile.virtualizer / 1000f) * 4.0f
+                
+                // Estimate peak preset gain
+                val presetPeakGain = maxBandBoost + bassBoostDb + bassTunerDb + virtualizerDb
+                
+                // Master Normalization: automatically scales input gain downward by the exact preset overhead
+                // to match reference headroom, providing an incredibly smooth and balanced transition.
+                val normalizationOffset = if (presetPeakGain > 0f) {
+                    -(presetPeakGain * 0.70f).coerceIn(1.5f, 18.0f)
+                } else {
+                    -0.5f
+                }
+                
+                // If AGC is also enabled, add slight safety pad
+                if (profile.automatedGainControlEnabled) {
+                    normalizationOffset - 1.5f
+                } else {
+                    normalizationOffset
+                }
+            } else if (profile.automatedGainControlEnabled) {
+                // Automated Gain Control dynamic leveling
+                val totalGainOffset = profile.toBandArray().map { it.coerceAtLeast(0f) }.sum() +
+                        (profile.bassBoost / 1000f) * 10f +
+                        (if (profile.bassTunerPostGain > 0) profile.bassTunerPostGain else 0f)
+                
+                // Target a comfortable ceiling representing consistent loudness
+                // High intense settings get more attenuation, lower settings get less
+                -(totalGainOffset / 1.8f).coerceIn(1.5f, 18f)
+            } else if (profile.autoAttenuationEnabled) {
                 val maxBoost = profile.toBandArray().maxOrNull()?.coerceAtLeast(0f) ?: 0f
                 val bassAtten = (profile.bassBoost / 1000f) * 6.0f
                 val btBoost = if (profile.bassTunerPostGain > 0) profile.bassTunerPostGain else 0f
@@ -289,27 +322,56 @@ class AudioEffectEngine private constructor() {
             val finalLeftGain = attenuationDb + leftBalanceWeight
             val finalRightGain = attenuationDb + rightBalanceWeight
 
+            val finalLimiterEnabled = profile.limiterEnabled || profile.automatedGainControlEnabled || profile.masterNormalizationEnabled
+
             val builder = DynamicsProcessing.Config.Builder(
                 0, // preferredFrameDuration
                 2, // Channel count
                 false, 0, // pre-eq
                 false, 0, // mbc
                 false, 0, // post-eq
-                profile.limiterEnabled // limiter
+                finalLimiterEnabled // limiter
             )
 
-            val attackTime = profile.limiterAttackMs
-            val releaseTime = profile.limiterReleaseMs
-            val ratio = profile.limiterRatio
-            val threshold = profile.limiterThresholdDb
+            val attackTime = if (profile.masterNormalizationEnabled) {
+                1.5f // Extremely fast response to prevent switching spikes
+            } else if (profile.automatedGainControlEnabled) {
+                2.0f
+            } else {
+                profile.limiterAttackMs
+            }
+
+            val releaseTime = if (profile.masterNormalizationEnabled) {
+                80.0f // Smooth recovery for natural audio quality
+            } else if (profile.automatedGainControlEnabled) {
+                60.0f
+            } else {
+                profile.limiterReleaseMs
+            }
+
+            val ratio = if (profile.masterNormalizationEnabled) {
+                5.0f // Assertive but musical compression ratio
+            } else if (profile.automatedGainControlEnabled) {
+                4.0f
+            } else {
+                profile.limiterRatio
+            }
+
+            val threshold = if (profile.masterNormalizationEnabled) {
+                -5.0f // Protective threshold ceiling for presets
+            } else if (profile.automatedGainControlEnabled) {
+                -4.5f
+            } else {
+                profile.limiterThresholdDb
+            }
 
             val config = builder.build()
 
             for (c in 0 until 2) {
                 val gain = if (c == 0) finalLeftGain else finalRightGain
                 val limiter = DynamicsProcessing.Limiter(
-                    profile.limiterEnabled,
-                    profile.limiterEnabled,
+                    finalLimiterEnabled,
+                    finalLimiterEnabled,
                     0, // linkGroup
                     attackTime,
                     releaseTime,

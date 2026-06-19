@@ -389,6 +389,18 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         audioEngine.updateActiveProfile(updated)
     }
 
+    fun updateAutomatedGainControl(enabled: Boolean) {
+        val updated = _currentProfile.value.copy(automatedGainControlEnabled = enabled)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+    }
+
+    fun updateMasterNormalization(enabled: Boolean) {
+        val updated = _currentProfile.value.copy(masterNormalizationEnabled = enabled)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+    }
+
     fun updateAttenuation(auto: Boolean, value: Float) {
         val updated = _currentProfile.value.copy(autoAttenuationEnabled = auto, manualAttenuationDb = value)
         _currentProfile.value = updated
@@ -451,6 +463,24 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             band4kHz = 0f,
             band8kHz = 0f,
             band16kHz = 0f
+        )
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+    }
+
+    fun resetGainAndNormalizationSettings() {
+        val current = _currentProfile.value
+        val updated = current.copy(
+            automatedGainControlEnabled = false,
+            masterNormalizationEnabled = false,
+            autoAttenuationEnabled = true,
+            manualAttenuationDb = 0f,
+            channelBalance = 0f,
+            limiterEnabled = false,
+            limiterThresholdDb = -3.0f,
+            limiterRatio = 2.0f,
+            limiterAttackMs = 5.0f,
+            limiterReleaseMs = 50.0f
         )
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)

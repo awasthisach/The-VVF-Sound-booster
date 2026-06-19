@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SettingsInputComponent
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
@@ -469,7 +470,65 @@ fun SettingsScreen(viewModel: EqViewModel) {
              }
          }
 
-        // 5. Active Sessions Information Card
+        // 5. Reset to Factory Baseline Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930)),
+            border = BorderStroke(1.dp, Color(0xFFB3261E).copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Reset factory baseline",
+                        tint = Color(0xFFF2B8B5)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "गेन्स रीसेट करें (Reset to Default)",
+                        color = Color(0xFFE6E1E5),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = "यह विकल्प सभी मानकीकृत ध्वनि बूस्ट्स, लिमिटर सीमाएं, ऑटोमैटिक गेन कंट्रोल (AGC) और मास्टर नॉर्मलाइजेशन सेटिंग्स को डिफ़ॉल्ट बेसलाइन पर रीसेट कर देगा।",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFFCABEFF),
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.resetGainAndNormalizationSettings()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB3261E)),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .testTag("reset_defaults_button")
+                ) {
+                    Text(
+                        text = "फैक्ट्री बेसलाइन पर पुनर्स्थापित करें (Reset Settings)",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // 6. Active Sessions Information Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930).copy(alpha = 0.5f)),

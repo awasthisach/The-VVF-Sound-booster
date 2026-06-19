@@ -613,7 +613,201 @@ fun ToolsScreen(viewModel: EqViewModel) {
             }
         }
 
-        // 5. Digital Attenuation Card
+        // 5. Automated Gain Control (AGC) Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (currentProfile.automatedGainControlEnabled) Color(0xFF1E1C28) else Color(0xFF2B2930)
+            ),
+            border = BorderStroke(1.dp, if (currentProfile.automatedGainControlEnabled) Color(0xFF81C784) else Color(0xFF49454F))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Automated Gain Control",
+                            tint = if (currentProfile.automatedGainControlEnabled) Color(0xFF81C784) else Color(0xFFD0BCFF)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "ऑटोमैटिक गेन... (Automated Gain Control)",
+                                color = Color(0xFFE6E1E5),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (currentProfile.automatedGainControlEnabled) "सक्रिय (Clipping से सुरक्षा)" else "निष्क्रिय",
+                                color = if (currentProfile.automatedGainControlEnabled) Color(0xFF81C784) else Color(0xFF938F99),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = currentProfile.automatedGainControlEnabled,
+                        onCheckedChange = { enabled ->
+                            viewModel.updateAutomatedGainControl(enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF1B5E20),
+                            checkedTrackColor = Color(0xFF81C784)
+                        ),
+                        modifier = Modifier.testTag("agc_enabled_switch")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "यह फ़ीचर विभिन्न प्रीसेट्स या गानों के बीच स्विच करते समय अचानक तेज़ आवाज़ को दबाकर एक समान वॉल्यूम स्तर बनाए रखता है और हाई-इंटेंसिटी सेटिंग्स में ऑडियो क्लिपिंग (फ़टने) को होने से रोकता है।",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFCABEFF),
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+                
+                if (currentProfile.automatedGainControlEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF1B5E20).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF81C784).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "🛡️ गतिशील सुरक्षा मोड चालू है",
+                                color = Color(0xFF81C784),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                            Text(
+                                text = "• सुरक्षा थ्रेशोल्ड: -4.5 dB (सुरक्षित स्तर)\n• तीव्र प्रतिक्रिया समय: 2.0 ms (एंटी-क्लिपिंग)\n• यह आपके संगीत के अनुसार बुद्धिमानी से इनपुट हेडरूम को लाइव ट्यून करता है।",
+                                color = Color(0xFFE2F3E3),
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. Master Normalization Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (currentProfile.masterNormalizationEnabled) Color(0xFF1B2A2B) else Color(0xFF2B2930)
+            ),
+            border = BorderStroke(1.dp, if (currentProfile.masterNormalizationEnabled) Color(0xFF4DB6AC) else Color(0xFF49454F))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Hearing,
+                            contentDescription = "Master Normalization",
+                            tint = if (currentProfile.masterNormalizationEnabled) Color(0xFF4DB6AC) else Color(0xFFD0BCFF)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "मास्टर नॉर्मलाइजेशन (Master Normalization)",
+                                color = Color(0xFFE6E1E5),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (currentProfile.masterNormalizationEnabled) "सक्रिय (स्वचालित गेन सुरक्षा)" else "निष्क्रिय",
+                                color = if (currentProfile.masterNormalizationEnabled) Color(0xFF4DB6AC) else Color(0xFF938F99),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = currentProfile.masterNormalizationEnabled,
+                        onCheckedChange = { enabled ->
+                            viewModel.updateMasterNormalization(enabled)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF004D40),
+                            checkedTrackColor = Color(0xFF4DB6AC)
+                        ),
+                        modifier = Modifier.testTag("master_normalization_switch")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "यह विशेष नॉर्मलाइजर सक्रिय प्रीसेट के सभी बूस्ट्स (EQ, Bass Boost, Bass Tuner) का विश्लेषण करके इनपुट गेन को स्वचालित रूप से री-ट्यून करता है, जिससे तीव्र हेडसेट स्पाइक्स और स्वर क्लिपिंग पूर्ण रूप से रुक जाती हैं।",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFCABEFF),
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+                
+                if (currentProfile.masterNormalizationEnabled) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF004D40).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF4DB6AC).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            val maxBandBoost = currentProfile.toBandArray().maxOrNull()?.coerceAtLeast(0f) ?: 0f
+                            val bassBoostDb = (currentProfile.bassBoost / 1000f) * 12.0f
+                            val bassTunerDb = if (currentProfile.bassTunerPostGain > 0) currentProfile.bassTunerPostGain else 0f
+                            val virtualizerDb = (currentProfile.virtualizer / 1000f) * 4.0f
+                            val estimatedPeak = maxBandBoost + bassBoostDb + bassTunerDb + virtualizerDb
+                            val normOffset = if (estimatedPeak > 0f) -(estimatedPeak * 0.70f).coerceIn(1.5f, 18.0f) else -0.5f
+
+                            Text(
+                                text = "🛡️ प्रीसेट-आधारित गेन सुरक्षा",
+                                color = Color(0xFF4DB6AC),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(bottom = 2.dp)
+                            )
+                            Text(
+                                text = String.format(
+                                    Locale.US,
+                                    "• कुल अनुमानित प्रीसेट ओवरहेड: +%.1f dB\n• स्वचालित गेन नॉर्मलाइजेशन: %.1f dB\n• तीव्र लिमिटर थ्रेशोल्ड: -5.0 dB (क्लिपिंग अवरोधक)\n• संगीत प्रतिक्रिया गति: 1.5 ms (स्मूथ ट्रांजिशन)",
+                                    estimatedPeak,
+                                    normOffset
+                                ),
+                                color = Color(0xFFE0F2F1),
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 7. Digital Attenuation Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -689,7 +883,7 @@ fun ToolsScreen(viewModel: EqViewModel) {
             }
         }
 
-        // 6. Channel Balance Card
+        // 7. Channel Balance Card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
