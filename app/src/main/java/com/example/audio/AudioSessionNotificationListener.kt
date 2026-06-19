@@ -33,18 +33,36 @@ class AudioSessionNotificationListener : NotificationListenerService() {
             // Get active players
             val controllers = manager.getActiveSessions(component)
             if (controllers.isNotEmpty()) {
+                var foundPlaying = false
                 for (controller in controllers) {
                     val state = controller.playbackState
                     if (state != null && state.state == PlaybackState.STATE_PLAYING) {
                         val pkg = controller.packageName
                         Log.d("NotificationListener", "Audio active payload playing on: $pkg")
-                        // Trigger registration or legacy activation on detection
-                        AudioEffectEngine.getInstance().registerSession(0, "Active Notify: $pkg")
+                        foundPlaying = true
+                        
+                        // Try to get user friendly app name
+                        val appLabel = try {
+                            val pm = packageManager
+                            val info = pm.getApplicationInfo(pkg, 0)
+                            pm.getApplicationLabel(info).toString()
+                        } catch (e: Exception) {
+                            pkg
+                        }
+                        
+                        AudioEffectEngine.getInstance().setActivePlaybackApp(appLabel)
+                        break
                     }
                 }
+                if (!foundPlaying) {
+                    AudioEffectEngine.getInstance().setActivePlaybackApp(null)
+                }
+            } else {
+                AudioEffectEngine.getInstance().setActivePlaybackApp(null)
             }
         } catch (e: Exception) {
             Log.e("NotificationListener", "Failed checking active playbacks: ${e.message}")
+            AudioEffectEngine.getInstance().setActivePlaybackApp(null)
         }
     }
 }

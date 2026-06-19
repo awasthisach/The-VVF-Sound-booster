@@ -17,6 +17,12 @@ interface EqDao {
     @Query("SELECT * FROM eq_profiles WHERE name = :name LIMIT 1")
     suspend fun getProfileByName(name: String): EqProfile?
 
+    @Query("SELECT * FROM eq_profiles WHERE isCustom = 0 ORDER BY name ASC")
+    fun getSystemProfilesFlow(): Flow<List<EqProfile>>
+
+    @Query("SELECT * FROM eq_profiles WHERE isCustom = 1 ORDER BY name ASC")
+    fun getUserProfilesFlow(): Flow<List<EqProfile>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProfile(profile: EqProfile): Long
 

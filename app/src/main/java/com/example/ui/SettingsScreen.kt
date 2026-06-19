@@ -35,6 +35,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 
 @Composable
 fun SettingsScreen(viewModel: EqViewModel) {
@@ -43,16 +46,24 @@ fun SettingsScreen(viewModel: EqViewModel) {
 
     val bufferSize by viewModel.bufferSize.collectAsState()
     val legacyMode by viewModel.legacyMode.collectAsState()
-    val enhancedDetection by viewModel.enhancedDetection.collectAsState()
     val detectedSessions by viewModel.detectedSessions.collectAsState()
     val serviceStats by viewModel.serviceStats.collectAsState()
 
+    val lifecycleOwner = LocalLifecycleOwner.current
     var isNotificationAccessGranted by remember { mutableStateOf(false) }
 
-    // Check permission state in lifecycle
-    LaunchedEffect(Unit) {
-        val packageNames = NotificationManagerCompat.getEnabledListenerPackages(context)
-        isNotificationAccessGranted = packageNames.contains(context.packageName)
+    // Check permission state on resume so returning from system settings updates UI immediately
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val packageNames = NotificationManagerCompat.getEnabledListenerPackages(context)
+                isNotificationAccessGranted = packageNames.contains(context.packageName)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Column(
@@ -206,89 +217,7 @@ fun SettingsScreen(viewModel: EqViewModel) {
                         modifier = Modifier.testTag("legacy_mode_switch")
                     )
                 }
-
-                Divider(color = Color(0xFF49454F), modifier = Modifier.padding(vertical = 14.dp))
-
-                // Enhanced Dumpsys mode Selector Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
-                        Text(text = "उन्नत सत्र डिटेक्टर (Enhanced Polling)", color = Color(0xFFE6E1E5), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            text = "डीप DUMP अनुमति के ज़रिए ऑडियो फ्लिंगर पोलिंग को सक्रिय करता है, जो छुपे हुए प्लेयर मीडिया सत्र ढूंढ लेता है।",
-                            color = Color(0xFF938F99),
-                            fontSize = 10.sp,
-                            lineHeight = 13.sp
-                        )
-                    }
-                    Switch(
-                        checked = enhancedDetection,
-                        onCheckedChange = { viewModel.toggleEnhancedDetection(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF381E72),
-                            checkedTrackColor = Color(0xFFD0BCFF)
-                        ),
-                        modifier = Modifier.testTag("enhanced_detection_switch")
-                    )
-                }
             }
-        }
-
-        // 3. Step-by-Step ADB Perm Grant Panel (Shown when Enhanced toggle is focused/shown)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930)),
-            border = BorderStroke(1.dp, Color(0xFF49454F))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(imageVector = Icons.Default.Terminal, contentDescription = "ADB Console Guide", tint = Color(0xFFD0BCFF))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "ADB डीप DUMP सेटिंग गाइड", color = Color(0xFFE6E1E5), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "अगर उन्नत पोलिंग सक्षम है तो आपको एक बार अपने कंप्यूटर से ADB टूल की मदद से DUMP राइट प्रदान करनी होगी:",
-                    fontSize = 11.sp,
-                    color = Color(0xFF938F99),
-                    lineHeight = 15.sp
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Code Console Look Block
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF131215), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF49454F), RoundedCornerShape(8.dp))
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = "adb shell pm grant com.aistudio.vivadequ.gpyzx android.permission.DUMP",
-                        color = Color(0xFFA8EFF0),
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp,
-                        modifier = Modifier.testTag("adb_command_text")
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    text = "निर्देश:\n1. फोन की 'Developer Option' में जाकर 'USB Debugging' चालू करें।\n2. फोन को PC से कनेक्ट करें और टर्मिनल में ऊपर दिया गया पूरा कमांड पेस्ट कर एंटर दबाएं।",
-                    fontSize = 10.sp,
-                    color = Color(0xFF938F99),
-                    lineHeight = 14.sp
-                )
-            }
-        }
 
         // 4. Notification Access Manager Card
         Card(

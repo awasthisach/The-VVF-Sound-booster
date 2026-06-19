@@ -24,18 +24,37 @@ class AudioEffectEngine private constructor() {
     private val guardianInterventions = java.util.concurrent.atomic.AtomicInteger(0)
     private val startTime = System.currentTimeMillis()
 
+    private var lastCpuTimeMs = 0L
+    private var lastRealTimeMs = 0L
+
     fun incrementGuardianInterventions() {
         guardianInterventions.incrementAndGet()
     }
 
-    fun getResourceStats(): ServiceResourceStats {
+    fun getResourceStats(context: android.content.Context? = null): ServiceResourceStats {
         val runtime = Runtime.getRuntime()
-        val totalMemory = runtime.totalMemory()
-        val freeMemory = runtime.freeMemory()
-        val usedMemoryBytes = totalMemory - freeMemory
+        var usedMb = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024)
+        var maxMb = runtime.maxMemory() / (1024 * 1024)
         
-        val usedMb = usedMemoryBytes / (1024 * 1024)
-        val maxMb = runtime.maxMemory() / (1024 * 1024)
+        if (context != null) {
+            try {
+                val activityManager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as? android.app.ActivityManager
+                if (activityManager != null) {
+                    val memoryInfo = android.app.ActivityManager.MemoryInfo()
+                    activityManager.getMemoryInfo(memoryInfo)
+                    
+                    val debugMemInfo = android.os.Debug.MemoryInfo()
+                    android.os.Debug.getMemoryInfo(debugMemInfo)
+                    val pssMb = debugMemInfo.totalPss / 1024L
+                    if (pssMb > 0) {
+                        usedMb = pssMb
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AudioEffectEngine", "Failed to retrieve exact MemoryInfo: ${e.message}")
+            }
+        }
+        
         val percent = if (maxMb > 0) (usedMb.toFloat() / maxMb.toFloat()) * 100f else 0f
         
         // Auto-GC safety threshold to prevent OOM
@@ -45,9 +64,24 @@ class AudioEffectEngine private constructor() {
             Log.w("AudioEffectEngine", "Dynamic resource guardian triggered GC due to high memory ($usedMb MB / $maxMb MB)")
         }
         
-        val baseCpu = 1.5f + (activeSessions.size * 4.8f)
-        val fluctuation = (Math.random() * 0.8 - 0.4).toFloat()
-        val calculatedCpu = (baseCpu + fluctuation).coerceIn(0.8f, 99f)
+        val currentCpuTimeMs = android.os.Process.getElapsedCpuTime()
+        val currentRealTimeMs = android.os.SystemClock.elapsedRealtime()
+        
+        val calculatedCpu = if (lastRealTimeMs > 0L) {
+            val cpuDelta = currentCpuTimeMs - lastCpuTimeMs
+            val realDelta = currentRealTimeMs - lastRealTimeMs
+            if (realDelta > 0L) {
+                val cores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
+                ((cpuDelta.toFloat() / realDelta.toFloat()) * 100f / cores).coerceIn(0.1f, 100.0f)
+            } else {
+                1.5f + (activeSessions.size * 1.2f)
+            }
+        } else {
+            1.5f + (activeSessions.size * 1.2f)
+        }
+        
+        lastCpuTimeMs = currentCpuTimeMs
+        lastRealTimeMs = currentRealTimeMs
 
         return ServiceResourceStats(
             usedMemoryMb = usedMb,
@@ -70,22 +104,11 @@ class AudioEffectEngine private constructor() {
     @Volatile
     private var isLegacyModeEnabled = true
 
-    @Volatile
-    private var isEnhancedPollingEnabled = false
+    private val _activePlaybackApp = MutableStateFlow<String?>(null)
+    val activePlaybackApp: StateFlow<String?> = _activePlaybackApp
 
-    init {
-        // Start enhanced dumpsys polling in a background worker
-        scope.launch {
-            while (true) {
-                if (isEnhancedPollingEnabled) {
-                    val sessions = pollNativeSessionsFromDumpsys()
-                    sessions.forEach { sessionId ->
-                        registerSession(sessionId, "Dumpsys Poller")
-                    }
-                }
-                delay(4000)
-            }
-        }
+    fun setActivePlaybackApp(appName: String?) {
+        _activePlaybackApp.value = appName
     }
 
     fun setLegacyMode(enabled: Boolean) {
@@ -98,12 +121,6 @@ class AudioEffectEngine private constructor() {
     }
 
     fun isLegacyMode(): Boolean = isLegacyModeEnabled
-
-    fun setEnhancedPolling(enabled: Boolean) {
-        isEnhancedPollingEnabled = enabled
-    }
-
-    fun isEnhancedPolling(): Boolean = isEnhancedPollingEnabled
 
     fun registerSession(sessionId: Int, source: String = "Unknown") {
         if (sessionId < 0) return
@@ -241,31 +258,7 @@ class AudioEffectEngine private constructor() {
         return 0f
     }
 
-    private fun pollNativeSessionsFromDumpsys(): List<Int> {
-        val sessions = mutableListOf<Int>()
-        try {
-            val process = Runtime.getRuntime().exec("dumpsys media.audio_flinger")
-            val reader = process.inputStream.bufferedReader()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                val matchedLine = line ?: continue
-                if (matchedLine.contains("session", ignoreCase = true) || matchedLine.contains("sessionid", ignoreCase = true)) {
-                    val regex = Regex("""\b(?:session|id|sessionid|active session)\b\s*[:=]?\s*(\d+)""", RegexOption.IGNORE_CASE)
-                    regex.findAll(matchedLine).forEach { match ->
-                        match.groups[1]?.value?.toIntOrNull()?.let { id ->
-                            if (id > 0 && id !in sessions && id < 100000) { // arbitrary bound to filter out garbage IDs
-                                sessions.add(id)
-                            }
-                        }
-                    }
-                }
-            }
-            process.waitFor()
-        } catch (e: Exception) {
-            // Permission not granted or command not found
-        }
-        return sessions
-    }
+
 
     private fun buildDynamicsConfig(profile: EqProfile): DynamicsProcessing.Config? {
         try {

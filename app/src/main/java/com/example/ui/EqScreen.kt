@@ -143,6 +143,7 @@ fun EqScreen(viewModel: EqViewModel) {
     val connectedDevice by viewModel.connectedDeviceName.collectAsState()
     val waveformPoints by viewModel.waveformPoints.collectAsState()
     val spectrumBars by viewModel.spectrumBars.collectAsState()
+    val isVisualizerActive by viewModel.isVisualizerActive.collectAsState()
     val visualizerStyle by viewModel.visualizerStyle.collectAsState()
     val isDolbyEnabled by viewModel.isDolbyEnabled.collectAsState()
     val dolbyMode by viewModel.dolbyMode.collectAsState()
@@ -233,12 +234,10 @@ fun EqScreen(viewModel: EqViewModel) {
                 }
             }
 
-            // Simulated Device Rotator
+            // Bluetooth Rescan
             IconButton(
                 onClick = {
-                    val alternateDevices = listOf("Sony WH-1000XM4", "Bose QC45", "Apple AirPods Pro 2", "Wired Headset", "USB-C Audio DAC")
-                    val index = (alternateDevices.indexOf(connectedDevice) + 1) % alternateDevices.size
-                    viewModel.setSimulatedConnectedDevice(alternateDevices[index])
+                    viewModel.updateConnectedDevice()
                 },
                 modifier = Modifier
                     .background(Color(0xFF2B2930), CircleShape)
@@ -246,8 +245,8 @@ fun EqScreen(viewModel: EqViewModel) {
                     .testTag("device_toggle_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.Headset,
-                    contentDescription = "Switch Simulated Headphone",
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Bluetooth Rescan",
                     tint = Color(0xFFD0BCFF)
                 )
             }
@@ -264,80 +263,110 @@ fun EqScreen(viewModel: EqViewModel) {
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2B2930))
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                // Interactive dynamic Canvas
-                Canvas(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp)
-                        .clickable {
-                            val styles = listOf("Cosmic Neon", "Cyberpunk Peak", "Minimalist")
-                            val nextStyleIdx = (styles.indexOf(visualizerStyle) + 1) % styles.size
-                            viewModel.updateVisualizerStyle(styles[nextStyleIdx])
+                if (isVisualizerActive) {
+                    // Interactive dynamic Canvas
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .clickable {
+                                val styles = listOf("Cosmic Neon", "Cyberpunk Peak", "Minimalist")
+                                val nextStyleIdx = (styles.indexOf(visualizerStyle) + 1) % styles.size
+                                viewModel.updateVisualizerStyle(styles[nextStyleIdx])
+                            }
+                    ) {
+                        val width = size.width
+                        val height = size.height
+
+                        // Choose colors based on style
+                        val gradient = when (visualizerStyle) {
+                            "Cyberpunk Peak" -> Brush.verticalGradient(listOf(Color(0xFFFF3366), Color(0xFF33FFFF)))
+                            "Minimalist" -> Brush.verticalGradient(listOf(Color(0xFFE6E1E5), Color(0xFF938F99)))
+                            else -> Brush.verticalGradient(listOf(Color(0xFFD0BCFF), Color(0xFF381E72)))
                         }
-                ) {
-                    val width = size.width
-                    val height = size.height
 
-                    // Choose colors based on style
-                    val gradient = when (visualizerStyle) {
-                        "Cyberpunk Peak" -> Brush.verticalGradient(listOf(Color(0xFFFF3366), Color(0xFF33FFFF)))
-                        "Minimalist" -> Brush.verticalGradient(listOf(Color(0xFFE6E1E5), Color(0xFF938F99)))
-                        else -> Brush.verticalGradient(listOf(Color(0xFFD0BCFF), Color(0xFF381E72)))
-                    }
-
-                    // 1. Draw Waveform background
-                    val wavePath = Path()
-                    val pointsCount = waveformPoints.size
-                    val stepX = width / (pointsCount - 1)
-                    wavePath.moveTo(0f, height / 2f)
-                    for (i in 0 until pointsCount) {
-                        val x = i * stepX
-                        val y = (height / 2f) + (waveformPoints[i] * (height / 2.5f))
-                        if (i == 0) wavePath.moveTo(x, y) else wavePath.lineTo(x, y)
-                    }
-                    drawPath(
-                        path = wavePath,
-                        brush = gradient,
-                        style = Stroke(width = 1.5f, cap = StrokeCap.Round, miter = 1f),
-                        alpha = 0.3f
-                    )
-
-                    // 2. Draw Spectrum Vertical Bars
-                    val barCount = spectrumBars.size
-                    val paddingX = 4f
-                    val totalPadding = paddingX * (barCount + 1)
-                    val barWidth = (width - totalPadding) / barCount
-
-                    for (j in 0 until barCount) {
-                        val barHeight = spectrumBars[j] * height * 0.85f
-                        val x = paddingX + j * (barWidth + paddingX)
-                        val y = height - barHeight
-                        drawRoundRect(
+                        // 1. Draw Waveform background
+                        val wavePath = Path()
+                        val pointsCount = waveformPoints.size
+                        val stepX = width / (pointsCount - 1)
+                        wavePath.moveTo(0f, height / 2f)
+                        for (i in 0 until pointsCount) {
+                            val x = i * stepX
+                            val y = (height / 2f) + (waveformPoints[i] * (height / 2.5f))
+                            if (i == 0) wavePath.moveTo(x, y) else wavePath.lineTo(x, y)
+                        }
+                        drawPath(
+                            path = wavePath,
                             brush = gradient,
-                            topLeft = Offset(x, y),
-                            size = Size(barWidth, barHeight),
-                            cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
-                            alpha = 0.85f
+                            style = Stroke(width = 1.5f, cap = StrokeCap.Round, miter = 1f),
+                            alpha = 0.3f
+                        )
+
+                        // 2. Draw Spectrum Vertical Bars
+                        val barCount = spectrumBars.size
+                        val paddingX = 4f
+                        val totalPadding = paddingX * (barCount + 1)
+                        val barWidth = (width - totalPadding) / barCount
+
+                        for (j in 0 until barCount) {
+                            val barHeight = spectrumBars[j] * height * 0.85f
+                            val x = paddingX + j * (barWidth + paddingX)
+                            val y = height - barHeight
+                            drawRoundRect(
+                                brush = gradient,
+                                topLeft = Offset(x, y),
+                                size = Size(barWidth, barHeight),
+                                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+                                alpha = 0.85f
+                            )
+                        }
+                    }
+
+                    // Text Overlay for Style Change indicator
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(10.dp),
+                        contentAlignment = Alignment.TopEnd
+                    ) {
+                        Text(
+                            text = "Visualizer: $visualizerStyle",
+                            fontSize = 9.sp,
+                            color = Color(0xFF938F99),
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier
+                                .background(Color(0xFF1C1B1F).copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
                         )
                     }
-                }
-
-                // Text Overlay for Style Change indicator
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(10.dp),
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    Text(
-                        text = "Visualizer: $visualizerStyle",
-                        fontSize = 9.sp,
-                        color = Color(0xFF938F99),
-                        fontFamily = FontFamily.Monospace,
+                } else {
+                    Box(
                         modifier = Modifier
-                            .background(Color(0xFF1C1B1F).copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
+                            .fillMaxSize()
+                            .background(Color(0xFF232128)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = "No Playback",
+                                tint = Color(0xFF938F99),
+                                modifier = Modifier.size(28.dp).padding(bottom = 4.dp)
+                            )
+                            Text(
+                                text = "कोई सक्रिय ऑडियो नहीं (No Active Playback)",
+                                color = Color(0xFFFFB74D),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "संगीत प्लेयर चालू करें और गाना बजाएं",
+                                color = Color(0xFF938F99),
+                                fontSize = 9.sp,
+                                modifier = Modifier.padding(top = 2.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -1,6 +1,14 @@
 package com.example.ui
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.Intent
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.media.audiofx.Visualizer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -171,6 +179,20 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             )
         )
 
+    val systemProfiles: StateFlow<List<EqProfile>> = repository.systemProfiles
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val userProfiles: StateFlow<List<EqProfile>> = repository.userProfiles
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
     val deviceMappings: StateFlow<List<DeviceMapping>> = repository.allDeviceMappings
         .stateIn(
             scope = viewModelScope,
@@ -178,9 +200,37 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             initialValue = emptyList()
         )
 
-    // Device setup (simulated Bluetooth tracker)
-    private val _connectedDeviceName = MutableStateFlow("Sony WH-1000XM4")
+    // Device setup (real Bluetooth tracker check)
+    private val _connectedDeviceName = MutableStateFlow("No Device Connected")
     val connectedDeviceName: StateFlow<String> = _connectedDeviceName.asStateFlow()
+
+    private var bluetoothA2dp: android.bluetooth.BluetoothA2dp? = null
+    
+    private val profileListener = object : BluetoothProfile.ServiceListener {
+        override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
+            if (profile == BluetoothProfile.A2DP) {
+                bluetoothA2dp = proxy as? android.bluetooth.BluetoothA2dp
+                updateConnectedDevice()
+            }
+        }
+        override fun onServiceDisconnected(profile: Int) {
+            if (profile == BluetoothProfile.A2DP) {
+                bluetoothA2dp = null
+                _connectedDeviceName.value = "No Device Connected"
+            }
+        }
+    }
+
+    private val bluetoothReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            if (action == BluetoothDevice.ACTION_ACL_CONNECTED ||
+                action == BluetoothDevice.ACTION_ACL_DISCONNECTED ||
+                "android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" == action) {
+                updateConnectedDevice()
+            }
+        }
+    }
 
     // AutoEq features
     private val _searchQuery = MutableStateFlow("")
@@ -202,6 +252,11 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     private val _spectrumBars = MutableStateFlow(FloatArray(24))
     val spectrumBars: StateFlow<FloatArray> = _spectrumBars.asStateFlow()
 
+    private val _isVisualizerActive = MutableStateFlow(false)
+    val isVisualizerActive: StateFlow<Boolean> = _isVisualizerActive.asStateFlow()
+
+    private var currentVisualizer: Visualizer? = null
+
     // Visualizer Styles
     private val _visualizerStyle = MutableStateFlow("Cosmic Neon") // Cosmic Neon, Cyberpunk Peak, Minimalist
     val visualizerStyle: StateFlow<String> = _visualizerStyle.asStateFlow()
@@ -213,23 +268,20 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     private val _legacyMode = MutableStateFlow(true)
     val legacyMode: StateFlow<Boolean> = _legacyMode.asStateFlow()
 
-    private val _enhancedDetection = MutableStateFlow(false)
-    val enhancedDetection: StateFlow<Boolean> = _enhancedDetection.asStateFlow()
-
     private val _detectedSessions = audioEngine.detectedSessions
     val detectedSessions: StateFlow<List<Int>> = _detectedSessions
 
     val serviceStats: StateFlow<com.example.data.ServiceResourceStats> by lazy {
         _serviceStats.asStateFlow()
     }
-    private val _serviceStats = MutableStateFlow(audioEngine.getResourceStats())
+    private val _serviceStats = MutableStateFlow(audioEngine.getResourceStats(context))
 
     init {
         // Poll service resource stats every 2 seconds
         viewModelScope.launch {
             while (true) {
                 try {
-                    _serviceStats.value = audioEngine.getResourceStats()
+                    _serviceStats.value = audioEngine.getResourceStats(context)
                 } catch (e: Exception) {
                     android.util.Log.e("EqViewModel", "Failed to update service stats: ${e.message}")
                 }
@@ -255,7 +307,10 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
                     EqProfile.BHAKTI_DEVOTIONAL
                 )
                 defaults.forEach { profile ->
-                    repository.insertProfile(profile)
+                    val existing = repository.getProfileById(profile.id) ?: repository.getProfileByName(profile.name)
+                    if (existing == null) {
+                        repository.insertProfile(profile)
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("EqViewModel", "Failed prepopulating default profiles", e)
@@ -266,67 +321,193 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         audioEngine.setLegacyMode(true)
         audioEngine.updateActiveProfile(_currentProfile.value)
 
-        // Run active physics loop for real-time visualizers
-        viewModelScope.launch(Dispatchers.Default) {
-            var wavePhase = 0f
-            while (true) {
-                val profile = _currentProfile.value
-                
-                // Base amplitudes scaled on EQ slider gains
-                val subBassGain = (profile.band60Hz + 15f) / 30f // normalized 0..1
-                val vocalGain = (profile.band1kHz + 15f) / 30f
-                val trebleGain = (profile.band16kHz + 15f) / 30f
-                
-                val bassBoostCoeff = (profile.bassBoost / 1000f).coerceAtLeast(0f)
-
-                // 1. Generate Organic Waveform
-                wavePhase += 0.15f
-                val nextWave = FloatArray(64)
-                for (i in 0 until 64) {
-                    val t = i.toFloat() / 64f
-                    val primaryFreq = sin(t * 12f + wavePhase) * 0.4f * (0.5f + subBassGain * 0.5f + bassBoostCoeff * 0.3f)
-                    val vocalHarmonic = sin(t * 35f - wavePhase * 1.5f) * 0.15f * (0.3f + vocalGain * 0.7f)
-                    val trebleFlicker = sin(t * 80f + wavePhase * 4f) * 0.05f * (0.2f + trebleGain * 0.8f)
-                    
-                    nextWave[i] = (primaryFreq + vocalHarmonic + trebleFlicker).coerceIn(-1f, 1f)
+        // Observe detected sessions to hook the Visualizer
+        viewModelScope.launch {
+            detectedSessions.collect { sessions ->
+                val targetSession = sessions.firstOrNull()
+                if (targetSession != null) {
+                    setupVisualizer(targetSession)
+                } else {
+                    releaseVisualizer()
+                    _isVisualizerActive.value = false
+                    _waveformPoints.value = FloatArray(64)
+                    _spectrumBars.value = FloatArray(24)
                 }
-                _waveformPoints.value = nextWave
-
-                // 2. Generate Decaying Spectrum Bars with Physics
-                val nextSpectrum = FloatArray(24)
-                val currentSpectrum = _spectrumBars.value
-                for (j in 0 until 24) {
-                    val progress = j.toFloat() / 24f
-                    
-                    // Base target based on user EQ levels and random noise
-                    val baseTarget = when {
-                        progress < 0.25f -> 0.2f + (subBassGain * 0.6f) + (bassBoostCoeff * 0.2f)
-                        progress < 0.65f -> 0.15f + (vocalGain * 0.5f)
-                        else -> 0.1f + (trebleGain * 0.6f)
-                    }
-
-                    // Add organic flicker
-                    val flicker = (sin(wavePhase * 5f + j * 0.8f) * 0.1f + 0.1f)
-                    val targetAmplitude = (baseTarget * flicker * 1.2f).coerceIn(0.05f, 1.0f)
-
-                    // Physics damping: slow decay, rapid rise
-                    val prev = if (currentSpectrum.size > j) currentSpectrum[j] else 0f
-                    if (targetAmplitude > prev) {
-                        nextSpectrum[j] = prev + (targetAmplitude - prev) * 0.5f
-                    } else {
-                        nextSpectrum[j] = prev - 0.08f // decay
-                    }
-                    nextSpectrum[j] = nextSpectrum[j].coerceIn(0.03f, 1.0f)
-                }
-                _spectrumBars.value = nextSpectrum
-
-                delay(16) // ~60fps
             }
+        }
+
+        // Register Bluetooth monitors
+        try {
+            val filter = IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_ACL_CONNECTED)
+                addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED)
+                addAction("android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED")
+            }
+            context.registerReceiver(bluetoothReceiver, filter)
+            
+            val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = manager?.adapter
+            adapter?.getProfileProxy(context, profileListener, BluetoothProfile.A2DP)
+        } catch (e: Exception) {
+            android.util.Log.e("EqViewModel", "Bluetooth initialization failed: ${e.message}")
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        try {
+            context.unregisterReceiver(bluetoothReceiver)
+        } catch (e: Exception) {
+            // Ignored
+        }
+        try {
+            val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = manager?.adapter
+            adapter?.closeProfileProxy(BluetoothProfile.A2DP, bluetoothA2dp)
+        } catch (e: Exception) {
+            // Ignored
+        }
+        releaseVisualizer()
+    }
+
+    @Synchronized
+    private fun setupVisualizer(sessionId: Int) {
+        try {
+            releaseVisualizer()
+            
+            if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                _isVisualizerActive.value = false
+                return
+            }
+
+            val visualizer = Visualizer(sessionId).apply {
+                captureSize = Visualizer.getCaptureSizeRange()[0]
+                setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                    override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                        if (waveform != null && waveform.isNotEmpty()) {
+                            val points = FloatArray(64)
+                            val step = (waveform.size / 64).coerceAtLeast(1)
+                            for (i in 0 until 64) {
+                                val index = (i * step).coerceAtMost(waveform.size - 1)
+                                points[i] = ((waveform[index].toInt() and 0xFF) - 128) / 128f
+                            }
+                            _waveformPoints.value = points
+                            _isVisualizerActive.value = true
+                        }
+                    }
+
+                    override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                        if (fft != null && fft.isNotEmpty()) {
+                            val bars = FloatArray(24)
+                            for (i in 0 until 24) {
+                                val rIndex = i * 2
+                                val iIndex = i * 2 + 1
+                                val real = if (rIndex < fft.size) fft[rIndex].toFloat() else 0f
+                                val imag = if (iIndex < fft.size) fft[iIndex].toFloat() else 0f
+                                val mag = kotlin.math.sqrt(real * real + imag * imag)
+                                val db = 20 * kotlin.math.log10(mag.coerceAtLeast(1f))
+                                bars[i] = (db / 60f).coerceIn(0.05f, 1.0f)
+                            }
+                            _spectrumBars.value = bars
+                            _isVisualizerActive.value = true
+                        }
+                    }
+                }, Visualizer.getMaxCaptureRate() / 2, true, true)
+                enabled = true
+            }
+            currentVisualizer = visualizer
+            _isVisualizerActive.value = true
+        } catch (e: Exception) {
+            android.util.Log.e("EqViewModel", "Failed to setup Visualizer on session $sessionId: ${e.message}")
+            _isVisualizerActive.value = false
+        }
+    }
+
+    @Synchronized
+    private fun releaseVisualizer() {
+        try {
+            currentVisualizer?.enabled = false
+            currentVisualizer?.release()
+        } catch (e: Exception) {
+            // Ignored
+        } finally {
+            currentVisualizer = null
+        }
+    }
+
+    fun updateConnectedDevice() {
+        try {
+            if (context.checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+                android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                _connectedDeviceName.value = "Bluetooth Permission Required"
+                return
+            }
+            
+            val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = manager?.adapter
+            if (adapter == null || !adapter.isEnabled) {
+                _connectedDeviceName.value = "Bluetooth Disabled"
+                return
+            }
+
+            var devName: String? = null
+            
+            val devices = bluetoothA2dp?.connectedDevices
+            if (!devices.isNullOrEmpty()) {
+                devName = devices.firstOrNull()?.name
+            }
+            
+            if (devName == null) {
+                val bondedDevices = adapter.bondedDevices
+                for (device in bondedDevices) {
+                    try {
+                        val isConnectedMethod = device.javaClass.getMethod("isConnected")
+                        val isConnected = isConnectedMethod.invoke(device) as Boolean
+                        if (isConnected) {
+                            devName = device.name
+                            break
+                        }
+                    } catch (e: Exception) {
+                        // Ignore reflection fail
+                    }
+                }
+            }
+            
+            val finalName = devName ?: "No Device Connected"
+            _connectedDeviceName.value = finalName
+            
+            if (finalName != "No Device Connected" && finalName != "Bluetooth Disabled" && finalName != "Bluetooth Permission Required") {
+                viewModelScope.launch {
+                    val mapping = repository.getDeviceMapping(finalName)
+                    if (mapping != null) {
+                        val mappedProfile = repository.getProfileById(mapping.profileId)
+                        if (mappedProfile != null) {
+                            _currentProfile.value = mappedProfile
+                            audioEngine.updateActiveProfile(mappedProfile)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("EqViewModel", "Error updating connected Bluetooth device Name", e)
+            _connectedDeviceName.value = "No Device Connected"
         }
     }
 
     fun selectTab(tab: Int) {
         _currentTab.value = tab
+    }
+
+    private fun saveActiveProfileToDb(profile: EqProfile) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val existing = repository.getProfileById(profile.id) ?: repository.getProfileByName(profile.name)
+            if (existing != null) {
+                val updatedWithCustom = profile.copy(isCustom = existing.isCustom)
+                repository.insertProfile(updatedWithCustom)
+            } else {
+                repository.insertProfile(profile)
+            }
+        }
     }
 
     fun updateBand(frequency: String, value: Float) {
@@ -345,36 +526,42 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateReverb(preset: Int) {
         val updated = _currentProfile.value.copy(reverbPreset = preset)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateBassBoost(strength: Float) {
         val updated = _currentProfile.value.copy(bassBoost = strength)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateVirtualizer(strength: Float) {
         val updated = _currentProfile.value.copy(virtualizer = strength)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateEqualLoudness(enabled: Boolean, threshold: Float) {
         val updated = _currentProfile.value.copy(equalLoudnessEnabled = enabled, equalLoudnessThresholdDb = threshold)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateBassTuner(mode: Int, cutoff: Float, gain: Float) {
         val updated = _currentProfile.value.copy(bassTunerMode = mode, bassTunerCutoff = cutoff, bassTunerPostGain = gain)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateLimiter(enabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float) {
@@ -387,30 +574,35 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         )
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateAutomatedGainControl(enabled: Boolean) {
         val updated = _currentProfile.value.copy(automatedGainControlEnabled = enabled)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateMasterNormalization(enabled: Boolean) {
         val updated = _currentProfile.value.copy(masterNormalizationEnabled = enabled)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateAttenuation(auto: Boolean, value: Float) {
         val updated = _currentProfile.value.copy(autoAttenuationEnabled = auto, manualAttenuationDb = value)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun updateChannelBalance(balance: Float) {
         val updated = _currentProfile.value.copy(channelBalance = balance)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     // Toggle presets or custom EQ profiles
