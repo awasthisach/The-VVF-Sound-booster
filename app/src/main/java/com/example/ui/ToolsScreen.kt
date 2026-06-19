@@ -14,7 +14,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.SurroundSound
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.automirrored.filled.VolumeDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.AnimatedVisibility
@@ -842,7 +842,7 @@ fun ToolsScreen(viewModel: EqViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.VolumeDown, contentDescription = "Attenuation", tint = Color(0xFFD0BCFF))
+                        Icon(imageVector = Icons.AutoMirrored.Filled.VolumeDown, contentDescription = "Attenuation", tint = Color(0xFFD0BCFF))
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(text = "डिजिटल एटेन्यूएटर (Gain Headroom)", color = Color(0xFFE6E1E5), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
