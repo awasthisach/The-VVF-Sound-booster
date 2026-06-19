@@ -22,6 +22,69 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Validate and Restore Gradle Wrapper Jar
+        run: |
+          mkdir -p gradle/wrapper
+          JAR_PATH="gradle/wrapper/gradle-wrapper.jar"
+          
+          is_valid_jar() {
+            if [ ! -f "$JAR_PATH" ]; then
+              return 1
+            fi
+            unzip -t "$JAR_PATH" > /dev/null 2>&1
+            return $?
+          }
+          
+          if is_valid_jar; then
+            echo "✅ gradle-wrapper.jar is present and valid."
+          else
+            echo "⚠️ gradle-wrapper.jar is missing, empty or corrupt! Restoring..."
+            
+            # Extract Gradle version from gradle-wrapper.properties
+            DIST_URL=$(grep "distributionUrl" gradle/wrapper/gradle-wrapper.properties | sed 's/\\//g' | cut -d'=' -f2)
+            VERSION=$(echo "$DIST_URL" | sed -n 's/.*gradle-\([0-9A-Za-z.-]*\)-\(bin\|all\)\.zip.*/\1/p')
+            if [ -z "$VERSION" ]; then
+              VERSION=$(echo "$DIST_URL" | sed -E 's/.*gradle-([0-9.]+).*/\1/')
+            fi
+            if [ -z "$VERSION" ]; then
+              VERSION="9.3.1"
+            fi
+            echo "Detected Gradle Version: $VERSION"
+            
+            # Try 1: GitHub Release tags with 'v' prefix
+            DOWNLOAD_URL="https://raw.githubusercontent.com/gradle/gradle/v${VERSION}/gradle/wrapper/gradle-wrapper.jar"
+            echo "Trying download: $DOWNLOAD_URL"
+            if curl -sSL --fail -o "$JAR_PATH" "$DOWNLOAD_URL"; then
+              if is_valid_jar; then
+                echo "✅ Successfully restored gradle-wrapper.jar from GitHub Release tag."
+                exit 0
+              fi
+            fi
+            
+            # Try 2: GitHub without 'v' prefix
+            DOWNLOAD_URL_ALT="https://raw.githubusercontent.com/gradle/gradle/${VERSION}/gradle/wrapper/gradle-wrapper.jar"
+            echo "Trying download (no v): $DOWNLOAD_URL_ALT"
+            if curl -sSL --fail -o "$JAR_PATH" "$DOWNLOAD_URL_ALT"; then
+              if is_valid_jar; then
+                echo "✅ Successfully restored gradle-wrapper.jar from GitHub repository."
+                exit 0
+              fi
+            fi
+
+            # Try 3: Maven Central
+            MAVEN_URL="https://repo1.maven.org/maven2/org/gradle/gradle-wrapper/${VERSION}/gradle-wrapper-${VERSION}.jar"
+            echo "Trying download from Maven Central: $MAVEN_URL"
+            if curl -sSL --fail -o "$JAR_PATH" "$MAVEN_URL"; then
+              if is_valid_jar; then
+                echo "✅ Successfully restored gradle-wrapper.jar from Maven Central."
+                exit 0
+              fi
+            fi
+
+            echo "❌ Failed to restore a valid gradle-wrapper.jar!"
+            exit 1
+          fi
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
