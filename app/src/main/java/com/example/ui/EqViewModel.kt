@@ -510,7 +510,17 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
     }
 
-    fun updateBand(frequency: String, value: Float) {
+    private var debounceApplyJob: kotlinx.coroutines.Job? = null
+
+    private fun debounceApplyAudio(profile: EqProfile) {
+        debounceApplyJob?.cancel()
+        debounceApplyJob = viewModelScope.launch {
+            delay(80)
+            audioEngine.updateActiveProfile(profile)
+        }
+    }
+
+    fun updateBand(frequency: String, value: Float, applyAudioNow: Boolean = false) {
         val current = _currentProfile.value
         val updated = when (frequency) {
             "60Hz" -> current.copy(band60Hz = value)
@@ -525,8 +535,13 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             else -> current
         }
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
     fun updateReverb(preset: Int) {
@@ -541,46 +556,72 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
         val updated = _currentProfile.value.copy(reverbPreset = preset, reverbIntensity = intensity)
         _currentProfile.value = updated
+        debounceApplyJob?.cancel()
         audioEngine.updateActiveProfile(updated)
         saveActiveProfileToDb(updated)
     }
 
-    fun updateReverbIntensity(strength: Float) {
+    fun updateReverbIntensity(strength: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(reverbIntensity = strength)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateBassBoost(strength: Float) {
+    fun updateBassBoost(strength: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(bassBoost = strength)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateVirtualizer(strength: Float) {
+    fun updateVirtualizer(strength: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(virtualizer = strength)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateEqualLoudness(enabled: Boolean, threshold: Float) {
+    fun updateEqualLoudness(enabled: Boolean, threshold: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(equalLoudnessEnabled = enabled, equalLoudnessThresholdDb = threshold)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateBassTuner(mode: Int, cutoff: Float, gain: Float) {
+    fun updateBassTuner(mode: Int, cutoff: Float, gain: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(bassTunerMode = mode, bassTunerCutoff = cutoff, bassTunerPostGain = gain)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateLimiter(enabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float) {
+    fun updateLimiter(enabled: Boolean, threshold: Float, ratio: Float, attack: Float, release: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(
             limiterEnabled = enabled,
             limiterThresholdDb = threshold,
@@ -589,13 +630,19 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             limiterReleaseMs = release
         )
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
     fun updateAutomatedGainControl(enabled: Boolean) {
         val updated = _currentProfile.value.copy(automatedGainControlEnabled = enabled)
         _currentProfile.value = updated
+        debounceApplyJob?.cancel()
         audioEngine.updateActiveProfile(updated)
         saveActiveProfileToDb(updated)
     }
@@ -603,22 +650,33 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     fun updateMasterNormalization(enabled: Boolean) {
         val updated = _currentProfile.value.copy(masterNormalizationEnabled = enabled)
         _currentProfile.value = updated
+        debounceApplyJob?.cancel()
         audioEngine.updateActiveProfile(updated)
         saveActiveProfileToDb(updated)
     }
 
-    fun updateAttenuation(auto: Boolean, value: Float) {
+    fun updateAttenuation(auto: Boolean, value: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(autoAttenuationEnabled = auto, manualAttenuationDb = value)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
-    fun updateChannelBalance(balance: Float) {
+    fun updateChannelBalance(balance: Float, applyAudioNow: Boolean = false) {
         val updated = _currentProfile.value.copy(channelBalance = balance)
         _currentProfile.value = updated
-        audioEngine.updateActiveProfile(updated)
-        saveActiveProfileToDb(updated)
+        if (applyAudioNow) {
+            debounceApplyJob?.cancel()
+            audioEngine.updateActiveProfile(updated)
+            saveActiveProfileToDb(updated)
+        } else {
+            debounceApplyAudio(updated)
+        }
     }
 
     // Toggle presets or custom EQ profiles

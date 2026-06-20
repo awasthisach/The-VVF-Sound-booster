@@ -708,7 +708,10 @@ fun EqScreen(viewModel: EqViewModel) {
                             Slider(
                                 value = gainValue,
                                 onValueChange = { newValue ->
-                                    viewModel.updateBand(freq, newValue)
+                                    viewModel.updateBand(freq, newValue, applyAudioNow = false)
+                                },
+                                onValueChangeFinished = {
+                                    viewModel.updateBand(freq, gainValue, applyAudioNow = true)
                                 },
                                 valueRange = -15f..15f,
                                 modifier = Modifier
@@ -802,7 +805,8 @@ fun EqScreen(viewModel: EqViewModel) {
                 }
                 Slider(
                     value = currentProfile.bassBoost,
-                    onValueChange = { viewModel.updateBassBoost(it) },
+                    onValueChange = { viewModel.updateBassBoost(it, applyAudioNow = false) },
+                    onValueChangeFinished = { viewModel.updateBassBoost(currentProfile.bassBoost, applyAudioNow = true) },
                     valueRange = 0f..1000f,
                     colors = SliderDefaults.colors(
                         thumbColor = Color(0xFFD0BCFF),
@@ -831,7 +835,8 @@ fun EqScreen(viewModel: EqViewModel) {
                 }
                 Slider(
                     value = currentProfile.reverbIntensity,
-                    onValueChange = { viewModel.updateReverbIntensity(it) },
+                    onValueChange = { viewModel.updateReverbIntensity(it, applyAudioNow = false) },
+                    onValueChangeFinished = { viewModel.updateReverbIntensity(currentProfile.reverbIntensity, applyAudioNow = true) },
                     valueRange = 0f..1000f,
                     colors = SliderDefaults.colors(
                         thumbColor = Color(0xFFD0BCFF),
