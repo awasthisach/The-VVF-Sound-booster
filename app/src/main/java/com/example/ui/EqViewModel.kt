@@ -679,6 +679,13 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
     }
 
+    fun finalizeActiveProfileUpdate() {
+        debounceApplyJob?.cancel()
+        val current = _currentProfile.value
+        audioEngine.updateActiveProfile(current)
+        saveActiveProfileToDb(current)
+    }
+
     // Toggle presets or custom EQ profiles
     fun selectActiveProfile(profile: EqProfile) {
         _currentProfile.value = profile

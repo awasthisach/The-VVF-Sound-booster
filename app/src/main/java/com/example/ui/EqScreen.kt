@@ -46,6 +46,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import com.example.data.EqProfile
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -688,45 +691,21 @@ fun EqScreen(viewModel: EqViewModel) {
                         )
 
                         // Elegant Vertical Slider Track
-                        Box(
+                        VerticalSlider(
+                            value = gainValue,
+                            onValueChange = { newValue ->
+                                viewModel.updateBand(freq, newValue, applyAudioNow = false)
+                            },
+                            onValueChangeFinished = {
+                                viewModel.finalizeActiveProfileUpdate()
+                            },
+                            valueRange = -15f..15f,
                             modifier = Modifier
                                 .weight(1f)
                                 .width(34.dp)
-                                .padding(vertical = 4.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Track Background
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .width(4.dp)
-                                    .clip(RoundedCornerShape(2.dp))
-                                    .background(Color(0xFF49454F))
-                            )
-
-                            // Slider Component
-                            Slider(
-                                value = gainValue,
-                                onValueChange = { newValue ->
-                                    viewModel.updateBand(freq, newValue, applyAudioNow = false)
-                                },
-                                onValueChangeFinished = {
-                                    viewModel.updateBand(freq, gainValue, applyAudioNow = true)
-                                },
-                                valueRange = -15f..15f,
-                                modifier = Modifier
-                                    .rotate(-90f)
-                                    .size(160.dp, 34.dp)
-                                    .testTag("slider_${freq}"),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Color(0xFFD0BCFF),
-                                    activeTrackColor = Color.Transparent,
-                                    inactiveTrackColor = Color.Transparent,
-                                    activeTickColor = Color.Transparent,
-                                    inactiveTickColor = Color.Transparent
-                                )
-                            )
-                        }
+                                .padding(vertical = 4.dp)
+                                .testTag("slider_${freq}")
+                        )
 
                         // Target frequency label
                         Text(
@@ -806,7 +785,7 @@ fun EqScreen(viewModel: EqViewModel) {
                 Slider(
                     value = currentProfile.bassBoost,
                     onValueChange = { viewModel.updateBassBoost(it, applyAudioNow = false) },
-                    onValueChangeFinished = { viewModel.updateBassBoost(currentProfile.bassBoost, applyAudioNow = true) },
+                    onValueChangeFinished = { viewModel.finalizeActiveProfileUpdate() },
                     valueRange = 0f..1000f,
                     colors = SliderDefaults.colors(
                         thumbColor = Color(0xFFD0BCFF),
@@ -836,7 +815,7 @@ fun EqScreen(viewModel: EqViewModel) {
                 Slider(
                     value = currentProfile.reverbIntensity,
                     onValueChange = { viewModel.updateReverbIntensity(it, applyAudioNow = false) },
-                    onValueChangeFinished = { viewModel.updateReverbIntensity(currentProfile.reverbIntensity, applyAudioNow = true) },
+                    onValueChangeFinished = { viewModel.finalizeActiveProfileUpdate() },
                     valueRange = 0f..1000f,
                     colors = SliderDefaults.colors(
                         thumbColor = Color(0xFFD0BCFF),
@@ -952,5 +931,86 @@ fun EqScreen(viewModel: EqViewModel) {
             },
             containerColor = Color(0xFF2B2930)
         )
+    }
+}
+
+@Composable
+fun VerticalSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: (() -> Unit)? = null,
+    valueRange: ClosedFloatingPointRange<Float>,
+    modifier: Modifier = Modifier,
+    activeColor: Color = Color(0xFFD0BCFF),
+    inactiveColor: Color = Color(0xFF49454F)
+) {
+    val currentValState = rememberUpdatedState(value)
+    val curRangeState = rememberUpdatedState(valueRange)
+
+    BoxWithConstraints(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    val range = curRangeState.value
+                    val rangeSpan = range.endInclusive - range.start
+                    val progress = 1f - (offset.y / size.height).coerceIn(0f, 1f)
+                    val newValue = range.start + progress * rangeSpan
+                    onValueChange(newValue)
+                    onValueChangeFinished?.invoke()
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragEnd = { onValueChangeFinished?.invoke() },
+                    onDragCancel = { onValueChangeFinished?.invoke() }
+                ) { change, dragAmount ->
+                    change.consume()
+                    val range = curRangeState.value
+                    val deltaProgress = -dragAmount.y / size.height
+                    val rangeSpan = range.endInclusive - range.start
+                    val currentProgress = (currentValState.value - range.start) / rangeSpan
+                    val newProgress = (currentProgress + deltaProgress).coerceIn(0f, 1f)
+                    val newValue = range.start + newProgress * rangeSpan
+                    onValueChange(newValue)
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        val rangeSpan = valueRange.endInclusive - valueRange.start
+        val progress = if (rangeSpan > 0) ((value - valueRange.start) / rangeSpan).coerceIn(0f, 1f) else 0f
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val trackWidth = 4.dp.toPx()
+            val x = size.width / 2
+            val startY = size.height
+            val endY = 0f
+
+            // Inactive track (top part from thumb to top)
+            drawLine(
+                color = inactiveColor,
+                start = Offset(x, startY - progress * size.height),
+                end = Offset(x, endY),
+                strokeWidth = trackWidth,
+                cap = StrokeCap.Round
+            )
+
+            // Active track (bottom part from bottom to thumb)
+            if (progress > 0) {
+                drawLine(
+                    color = activeColor,
+                    start = Offset(x, startY),
+                    end = Offset(x, startY - progress * size.height),
+                    strokeWidth = trackWidth,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // Draw thumb circle
+            drawCircle(
+                color = activeColor,
+                radius = 10.dp.toPx(),
+                center = Offset(x, startY - progress * size.height)
+            )
+        }
     }
 }

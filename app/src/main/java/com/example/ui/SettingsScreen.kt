@@ -232,12 +232,12 @@ fun SettingsScreen(viewModel: EqViewModel) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.NotificationsActive, contentDescription = "Notification listener permissions", tint = Color(0xFFD0BCFF))
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "म्यूजिक डिटेक्टर अनुमति (Notification Access)", color = Color(0xFFE6E1E5), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(text = "म्यूजिक डिटेक्टर अनुमति (Optional Notification Access)", color = Color(0xFFE6E1E5), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "सक्रिय म्यूजिक प्लेयर (Spotify, Youtube आदि) की सूचनाओं को ट्रैक करके यह ऑटोमेटेड सेशन लोड करता है।",
+                    text = "यह अनुमति पूरी तरह से वैकल्पिक (Optional) है। इसके बिना भी आपके सभी ऑडियो प्रभाव, EQ, बास बूस्ट और रीवरब हमेशा 100% परफेक्ट काम करेंगे। यह केवल सक्रिय म्यूजिक प्लेयर ऐप (जैसे Spotify, Youtube) का नाम दिखाने के लिए उपयोगी है।",
                     fontSize = 11.sp,
                     color = Color(0xFF938F99),
                     lineHeight = 15.sp
@@ -254,12 +254,12 @@ fun SettingsScreen(viewModel: EqViewModel) {
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
-                                .background(if (isNotificationAccessGranted) Color(0xFF34C759) else Color(0xFFFF453A), RoundedCornerShape(4.dp))
+                                .background(if (isNotificationAccessGranted) Color(0xFF34C759) else Color(0xFFFFCC00), RoundedCornerShape(4.dp))
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (isNotificationAccessGranted) "अनुमति स्वीकृत (Granted)" else "अनुमति अनुपलब्ध (Required)",
-                            color = if (isNotificationAccessGranted) Color(0xFF34C759) else Color(0xFFFF3B30),
+                            text = if (isNotificationAccessGranted) "अनुमति स्वीकृत (Active)" else "निष्क्रिय (Optional - Not Needed)",
+                            color = if (isNotificationAccessGranted) Color(0xFF34C759) else Color(0xFFFFCC00),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -275,12 +275,12 @@ fun SettingsScreen(viewModel: EqViewModel) {
                                     context.startActivity(Intent(Settings.ACTION_SETTINGS))
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF313033)),
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
                             modifier = Modifier.height(34.dp).testTag("grant_notification_permission_button")
                         ) {
-                            Text(text = "परमिशन दें", color = Color(0xFF381E72), fontSize = 11.sp)
+                            Text(text = "चाहें तो अनुमत करें", color = Color(0xFFD0BCFF), fontSize = 11.sp)
                         }
                     }
                 }
