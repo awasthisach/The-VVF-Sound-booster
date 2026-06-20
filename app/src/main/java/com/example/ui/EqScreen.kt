@@ -960,17 +960,26 @@ fun VerticalSlider(
                 }
             }
             .pointerInput(Unit) {
+                var dragAccumulatedProgress = 0f
                 detectDragGestures(
+                    onDragStart = { _ ->
+                        val range = curRangeState.value
+                        val rangeSpan = range.endInclusive - range.start
+                        dragAccumulatedProgress = if (rangeSpan > 0f) {
+                            ((currentValState.value - range.start) / rangeSpan).coerceIn(0f, 1f)
+                        } else {
+                            0f
+                        }
+                    },
                     onDragEnd = { onValueChangeFinished?.invoke() },
                     onDragCancel = { onValueChangeFinished?.invoke() }
                 ) { change, dragAmount ->
                     change.consume()
                     val range = curRangeState.value
                     val deltaProgress = -dragAmount.y / size.height
+                    dragAccumulatedProgress = (dragAccumulatedProgress + deltaProgress).coerceIn(0f, 1f)
                     val rangeSpan = range.endInclusive - range.start
-                    val currentProgress = (currentValState.value - range.start) / rangeSpan
-                    val newProgress = (currentProgress + deltaProgress).coerceIn(0f, 1f)
-                    val newValue = range.start + newProgress * rangeSpan
+                    val newValue = range.start + dragAccumulatedProgress * rangeSpan
                     onValueChange(newValue)
                 }
             },
