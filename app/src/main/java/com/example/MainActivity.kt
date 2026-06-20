@@ -49,7 +49,6 @@ import androidx.lifecycle.lifecycleScope
 import com.example.audio.AudioService
 import com.example.data.AppDatabase
 import com.example.data.EqRepository
-import com.example.ui.AutoEqScreen
 import com.example.ui.EqScreen
 import com.example.ui.EqViewModel
 import com.example.ui.EqViewModelFactory
@@ -112,9 +111,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         when (currentTab) {
                             0 -> EqScreen(viewModel = viewModel)
-                            1 -> AutoEqScreen(viewModel = viewModel)
-                            2 -> ToolsScreen(viewModel = viewModel)
-                            3 -> SettingsScreen(viewModel = viewModel)
+                            1 -> ToolsScreen(viewModel = viewModel)
+                            2 -> SettingsScreen(viewModel = viewModel)
                         }
                     }
                 }
@@ -159,27 +157,7 @@ fun BottomBar(
         NavigationBarItem(
             selected = currentTab == 1,
             onClick = { onTabSelected(1) },
-            label = { Text("ऑटोईक्यु", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 1) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant) },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Headset,
-                    contentDescription = "AutoEq"
-                )
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = MaterialTheme.colorScheme.background,
-                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                selectedTextColor = MaterialTheme.colorScheme.secondary,
-                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                indicatorColor = MaterialTheme.colorScheme.secondary
-            ),
-            modifier = Modifier.testTag("nav_tab_autoeq")
-        )
-
-        NavigationBarItem(
-            selected = currentTab == 2,
-            onClick = { onTabSelected(2) },
-            label = { Text("टूल्स", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 2) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
+            label = { Text("टूल्स", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) },
             icon = {
                 Icon(
                     imageVector = Icons.Default.Bolt,
@@ -197,9 +175,9 @@ fun BottomBar(
         )
 
         NavigationBarItem(
-            selected = currentTab == 3,
-            onClick = { onTabSelected(3) },
-            label = { Text("सेटिंग्स", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 3) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant) },
+            selected = currentTab == 2,
+            onClick = { onTabSelected(2) },
+            label = { Text("सेटिंग्स", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (currentTab == 2) Color(0xFF81C784) else MaterialTheme.colorScheme.onSurfaceVariant) },
             icon = {
                 Icon(
                     imageVector = Icons.Default.Settings,

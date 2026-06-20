@@ -429,7 +429,7 @@ fun SettingsScreen(viewModel: EqViewModel) {
 
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "यह विकल्प सभी मानकीकृत ध्वनि बूस्ट्स, लिमिटर सीमाएं, ऑटोमैटिक गेन कंट्रोल (AGC) और मास्टर नॉर्मलाइजेशन सेटिंग्स को डिफ़ॉल्ट बेसलाइन पर रीसेट कर देगा।",
+                    text = "यह विकल्प सभी साउंड बूस्टर (Sound Booster), ट्रैक वॉल्यूम नॉर्मलाइजेशन (Volume Normalization) और ऑडियो लिमिटर सेटिंग्स को पूरी तरह से डिफ़ॉल्ट बेसलाइन पर रीसेट कर देगा।",
                     fontSize = 11.5.sp,
                     color = Color(0xFFCABEFF),
                     lineHeight = 16.sp

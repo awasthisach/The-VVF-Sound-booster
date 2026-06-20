@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Speaker
@@ -35,11 +36,8 @@ import java.util.Locale
 fun ToolsScreen(viewModel: EqViewModel) {
     val currentProfile by viewModel.currentProfile.collectAsState()
     
-    val isDolbyEnabled by viewModel.isDolbyEnabled.collectAsState()
-    val dolbyMode by viewModel.dolbyMode.collectAsState()
-    val dolbySurroundStrength by viewModel.dolbySurroundStrength.collectAsState()
-    val dolbyDialogueEnhancer by viewModel.dolbyDialogueEnhancer.collectAsState()
-    val dolbyVolumeLeveler by viewModel.dolbyVolumeLeveler.collectAsState()
+    val isSoundBoosterEnabled by viewModel.isSoundBoosterEnabled.collectAsState()
+    val soundBoosterGainDb by viewModel.soundBoosterGainDb.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -66,15 +64,15 @@ fun ToolsScreen(viewModel: EqViewModel) {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Dolby Atmos Soundstage Control Engine Card (TOP RANKED FEATURE)
+        // Sound Booster Card (NEW HIGH POWER REPLACEMENT FOR DOLBY)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
             colors = CardDefaults.cardColors(
-                containerColor = if (isDolbyEnabled) Color(0xFF1E1C28) else Color(0xFF23222B)
+                containerColor = if (isSoundBoosterEnabled) Color(0xFF2E1F1A) else Color(0xFF23222B)
             ),
-            border = BorderStroke(1.dp, if (isDolbyEnabled) Color(0xFF9E86FF) else Color(0xFF49454F))
+            border = BorderStroke(1.dp, if (isSoundBoosterEnabled) Color(0xFFFF8F00) else Color(0xFF49454F))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Main Header Row
@@ -85,41 +83,41 @@ fun ToolsScreen(viewModel: EqViewModel) {
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.SurroundSound,
-                            contentDescription = "Dolby Atmos",
-                            tint = if (isDolbyEnabled) Color(0xFFB4A0FF) else Color(0xFF938F99),
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "Sound Booster",
+                            tint = if (isSoundBoosterEnabled) Color(0xFFFFB300) else Color(0xFF938F99),
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Dolby Atmos® सराउंड साउंड",
-                                color = if (isDolbyEnabled) Color.White else Color(0xFFE6E1E5),
+                                text = "साउंड बूस्टर (Volume Booster)",
+                                color = if (isSoundBoosterEnabled) Color.White else Color(0xFFE6E1E5),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
                             Text(
-                                text = if (isDolbyEnabled) "3D साउंडस्टेज सक्रिय है" else "सिमुलेशन बंद है",
-                                color = if (isDolbyEnabled) Color(0xFFB4A0FF) else Color(0xFF938F99),
+                                text = if (isSoundBoosterEnabled) "अतिरिक्त लाउडनेस बूस्ट सक्षम है" else "बूस्टर निष्क्रिय है (0 dB)",
+                                color = if (isSoundBoosterEnabled) Color(0xFFFFB300) else Color(0xFF938F99),
                                 fontSize = 11.sp
                             )
                         }
                     }
 
                     Switch(
-                        checked = isDolbyEnabled,
-                        onCheckedChange = { viewModel.setDolbyEnabled(it) },
+                        checked = isSoundBoosterEnabled,
+                        onCheckedChange = { viewModel.setSoundBoosterEnabled(it) },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFF381E72),
-                            checkedTrackColor = Color(0xFFB4A0FF),
+                            checkedThumbColor = Color(0xFF4E2600),
+                            checkedTrackColor = Color(0xFFFFB300),
                             uncheckedThumbColor = Color(0xFF938F99),
                             uncheckedTrackColor = Color(0xFF2B2930)
                         ),
-                        modifier = Modifier.testTag("dolby_atmos_switch")
+                        modifier = Modifier.testTag("sound_booster_switch")
                     )
                 }
 
-                AnimatedVisibility(visible = isDolbyEnabled) {
+                AnimatedVisibility(visible = isSoundBoosterEnabled) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -135,146 +133,77 @@ fun ToolsScreen(viewModel: EqViewModel) {
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Dolby Mode selectors (Movie, Music, Game, Voice)
-                        Text(
-                            text = "एटमॉस साउंड प्रोफाइल (Mode Select)",
-                            color = Color(0xFFE6E1E5),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-
-                        val dolbyModes = listOf("सिनेमा (Movie)", "संगीत (Music)", "खेल (Game)", "ध्वनि (Voice)")
-                        Row(
+                        // Protection/Warning indicator
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFF8F00).copy(alpha = 0.1f)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFFFF8F00).copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                .padding(bottom = 16.dp)
                         ) {
-                            dolbyModes.forEachIndexed { index, modeName ->
-                                val isSelected = dolbyMode == index
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) Color(0xFFB4A0FF) else Color(0xFF1C1B1F))
-                                        .border(
-                                            1.dp,
-                                            if (isSelected) Color(0xFFB4A0FF) else Color(0xFF49454F).copy(alpha = 0.5f),
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { viewModel.setDolbyMode(index) }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = modeName,
-                                        color = if (isSelected) Color(0xFF24005A) else Color(0xFFE6E1E5),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Hearing,
+                                    contentDescription = "Hearing Protect",
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "सुरक्षा चेतावनी: कान और स्पीकर हित में कृपया अधिक समय तक निरंतर अधिकतम बूस्ट स्तर पर न सुनें।",
+                                    color = Color(0xFFFFE082),
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                )
                             }
                         }
 
-                        // Dolby Spatial Width / Surround Strength Slider
+                        // Booster Gain Slider
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "थ्री-डी साउंडस्टेज विड्थ (Surround Strength)",
+                                text = "बूस्टर पावर लेवल (Booster Intensity)",
                                 color = Color(0xFFE6E1E5),
-                                fontSize = 12.sp
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
                             )
+                            val multiplier = 100 + (soundBoosterGainDb * 10).toInt()
                             Text(
-                                text = String.format(Locale.US, "%.0f%%", dolbySurroundStrength / 10f),
-                                color = Color(0xFFB4A0FF),
+                                text = String.format(Locale.US, "+%.1f dB (%d%%)", soundBoosterGainDb, multiplier),
+                                color = Color(0xFFFFB300),
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                        
                         Slider(
-                            value = dolbySurroundStrength,
-                            onValueChange = { viewModel.setDolbySurroundStrength(it) },
-                            valueRange = 0f..1000f,
+                            value = soundBoosterGainDb,
+                            onValueChange = { viewModel.setSoundBoosterGainDb(it) },
+                            valueRange = 0f..15f,
                             colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFFB4A0FF),
-                                activeTrackColor = Color(0xFFB4A0FF),
+                                thumbColor = Color(0xFFFFB300),
+                                activeTrackColor = Color(0xFFFFB300),
                                 inactiveTrackColor = Color(0xFF49454F)
                             ),
-                            modifier = Modifier.testTag("dolby_surround_slider")
+                            modifier = Modifier.testTag("sound_booster_slider")
                         )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Dialog Enhancer (Dialogue Enhancement slider)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "वार्तालाप स्पष्टता (Dialogue Enhancer)",
-                                color = Color(0xFFE6E1E5),
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = String.format(Locale.US, "%.0f%%", dolbyDialogueEnhancer / 10f),
-                                color = Color(0xFFB4A0FF),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Slider(
-                            value = dolbyDialogueEnhancer,
-                            onValueChange = { viewModel.setDolbyDialogueEnhancer(it) },
-                            valueRange = 0f..1000f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = Color(0xFFB4A0FF),
-                                activeTrackColor = Color(0xFFB4A0FF),
-                                inactiveTrackColor = Color(0xFF49454F)
-                            ),
-                            modifier = Modifier.testTag("dolby_dialogue_slider")
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Smart Volume Leveler switch row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF1C1B1F), RoundedCornerShape(8.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "स्मार्ट वॉल्यूम लेवलर (Smart Volume)",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "थिएटर जैसी स्वतः आवाज सुसंगत रखेगा",
-                                    color = Color(0xFF938F99),
-                                    fontSize = 10.sp
-                                )
-                            }
-                            Switch(
-                                checked = dolbyVolumeLeveler,
-                                onCheckedChange = { viewModel.setDolbyVolumeLeveler(it) },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFF381E72),
-                                    checkedTrackColor = Color(0xFFB4A0FF)
-                                ),
-                                modifier = Modifier.testTag("dolby_leveler_switch")
-                            )
+                            Text("0 dB (सामान्य)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+7.5 dB (मीडियम)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+15 dB (सुपर बूस्ट!)", color = Color(0xFFFFB300), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -315,24 +244,78 @@ fun ToolsScreen(viewModel: EqViewModel) {
                     modifier = Modifier.testTag("bass_boost_slider")
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // Virtualizer
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(text = "वर्चुअलाइज़र (Virtualizer - Stereo Wide)", color = Color(0xFFE6E1E5), fontSize = 13.sp)
-                    Text(text = String.format(Locale.US, "%.0f%%", currentProfile.virtualizer / 10f), color = Color(0xFFD0BCFF), fontFamily = FontFamily.Monospace, fontSize = 12.sp)
+                Divider(color = Color(0xFF49454F).copy(alpha = 0.5f), thickness = 1.dp)
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Virtual Surround Sound Toggle & Strength
+                val isVirtualSurroundEnabled = currentProfile.virtualizer > 0f
+                var lastNonZeroVirtualizer by remember { mutableStateOf(600f) }
+                if (currentProfile.virtualizer > 0f) {
+                    lastNonZeroVirtualizer = currentProfile.virtualizer
                 }
-                Slider(
-                    value = currentProfile.virtualizer,
-                    onValueChange = { viewModel.updateVirtualizer(it) },
-                    valueRange = 0f..1000f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color(0xFFD0BCFF),
-                        activeTrackColor = Color(0xFFD0BCFF),
-                        inactiveTrackColor = Color(0xFF49454F)
-                    ),
-                    modifier = Modifier.testTag("virtualizer_slider")
-                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "वर्चुअल सराउंड साउंड (Virtual Surround)",
+                            color = Color(0xFFE6E1E5),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "हेडफ़ोन के लिए 3D स्थानिक ऑडियो अनुभव सक्रिय करें",
+                            color = Color(0xFF938F99),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Switch(
+                        checked = isVirtualSurroundEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                viewModel.updateVirtualizer(lastNonZeroVirtualizer)
+                            } else {
+                                viewModel.updateVirtualizer(0f)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF4F378B),
+                            checkedTrackColor = Color(0xFFD0BCFF)
+                        ),
+                        modifier = Modifier.testTag("virtual_surround_switch")
+                    )
+                }
+
+                AnimatedVisibility(visible = isVirtualSurroundEnabled) {
+                    Column(modifier = Modifier.padding(top = 12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(text = "स्थानिक तीव्रता (Spatial Intensity)", color = Color(0xFFE6E1E5), fontSize = 12.sp)
+                            Text(
+                                text = String.format(Locale.US, "%.0f%%", currentProfile.virtualizer / 10f),
+                                color = Color(0xFFD0BCFF),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Slider(
+                            value = currentProfile.virtualizer,
+                            onValueChange = { viewModel.updateVirtualizer(it) },
+                            valueRange = 100f..1000f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFD0BCFF),
+                                activeTrackColor = Color(0xFFD0BCFF),
+                                inactiveTrackColor = Color(0xFF49454F)
+                            ),
+                            modifier = Modifier.testTag("virtualizer_slider")
+                        )
+                    }
+                }
             }
         }
 
@@ -749,13 +732,13 @@ fun ToolsScreen(viewModel: EqViewModel) {
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "मास्टर नॉर्मलाइजेशन (Master Normalization)",
+                                text = "ट्रैक वॉल्यूम नॉर्मलाइजेशन (Volume Normalization)",
                                 color = Color(0xFFE6E1E5),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp
                             )
                             Text(
-                                text = if (currentProfile.masterNormalizationEnabled) "सक्रिय (स्वचालित गेन सुरक्षा)" else "निष्क्रिय",
+                                text = if (currentProfile.masterNormalizationEnabled) "सक्रिय (स्वचालित संगीत स्तर सुरक्षा चालू)" else "निष्क्रिय (गानों के बीच आवाज असंतुलित हो सकती है)",
                                 color = if (currentProfile.masterNormalizationEnabled) Color(0xFF4DB6AC) else Color(0xFF938F99),
                                 fontSize = 11.sp
                             )
@@ -778,7 +761,7 @@ fun ToolsScreen(viewModel: EqViewModel) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "यह विशेष नॉर्मलाइजर सक्रिय प्रीसेट के सभी बूस्ट्स (EQ, Bass Boost, Bass Tuner) का विश्लेषण करके इनपुट गेन को स्वचालित रूप से री-ट्यून करता है, जिससे तीव्र हेडसेट स्पाइक्स और स्वर क्लिपिंग पूर्ण रूप से रुक जाती हैं।",
+                    text = "यह इंटेलिजेंट नॉर्मलाइजर विभिन्न गानों या म्यूजिक ट्रैक्स के बीच अचानक तेज आवाज के उतार-चढ़ाव (sudden volume spikes/jumps) को पूर्ण रूप से रोकता है। यह सभी EQ बैंड्स और बूस्टर्स का स्वचालित रूप से विश्लेषण कर पूरे सत्र के लिए सुसंगत और संतुलित आवाज स्तर प्रदान करता है।",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFFCABEFF),
                     fontSize = 11.5.sp,

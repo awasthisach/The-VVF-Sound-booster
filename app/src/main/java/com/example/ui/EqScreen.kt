@@ -149,8 +149,8 @@ fun EqScreen(viewModel: EqViewModel) {
     val spectrumBars by viewModel.spectrumBars.collectAsState()
     val isVisualizerActive by viewModel.isVisualizerActive.collectAsState()
     val visualizerStyle by viewModel.visualizerStyle.collectAsState()
-    val isDolbyEnabled by viewModel.isDolbyEnabled.collectAsState()
-    val dolbyMode by viewModel.dolbyMode.collectAsState()
+    val isSoundBoosterEnabled by viewModel.isSoundBoosterEnabled.collectAsState()
+    val soundBoosterGainDb by viewModel.soundBoosterGainDb.collectAsState()
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
@@ -204,35 +204,28 @@ fun EqScreen(viewModel: EqViewModel) {
                     )
                 }
 
-                AnimatedVisibility(visible = isDolbyEnabled) {
-                    val modeText = when (dolbyMode) {
-                        0 -> "सिनेमा (Movie)"
-                        1 -> "संगीत (Music)"
-                        2 -> "खेल (Game)"
-                        3 -> "ध्वनि (Voice)"
-                        else -> "सिनेमा (Movie)"
-                    }
+                AnimatedVisibility(visible = isSoundBoosterEnabled) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .background(Color(0xFF9E86FF).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .border(1.dp, Color(0xFF9E86FF).copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                                .background(Color(0xFFFF8F00).copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .border(1.dp, Color(0xFFFF8F00).copy(alpha = 0.4f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
                                         .size(5.dp)
-                                        .background(Color(0xFF9E86FF), CircleShape)
+                                        .background(Color(0xFFFFB300), CircleShape)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "DOLBY ATMOS • $modeText",
+                                    text = String.format(Locale.US, "SOUND BOOSTER • ACTIVE (+%.1f dB)", soundBoosterGainDb),
                                     fontSize = 9.sp,
-                                    color = Color(0xFFD0BCFF),
+                                    color = Color(0xFFFFCC80),
                                     fontWeight = FontWeight.Bold
                                 )
                             }

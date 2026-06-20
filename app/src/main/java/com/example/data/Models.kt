@@ -52,7 +52,11 @@ data class EqProfile(
     // Attenuation & Channel Balance
     val autoAttenuationEnabled: Boolean = true,
     val manualAttenuationDb: Float = 0f,
-    val channelBalance: Float = 0f // -1.0 (Left) to 1.0 (Right)
+    val channelBalance: Float = 0f, // -1.0 (Left) to 1.0 (Right)
+
+    // Saved Custom Sound Booster parameters per preset
+    val soundBoosterEnabled: Boolean = false,
+    val soundBoosterGainDb: Float = 0f
 ) {
     fun toBandArray(): FloatArray {
         return floatArrayOf(
@@ -223,14 +227,6 @@ data class DeviceMapping(
     @PrimaryKey val deviceName: String,
     val profileId: Int
 )
-
-data class AutoEqHeadphone(
-    val brand: String,
-    val model: String,
-    val gains: List<Float> // Corresponding to 9 bands: 60Hz, 120Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
-) {
-    val fullName: String get() = "$brand $model"
-}
 
 data class ServiceResourceStats(
     val usedMemoryMb: Long,

@@ -13,8 +13,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.audio.AudioEffectEngine
-import com.example.data.AutoEqData
-import com.example.data.AutoEqHeadphone
 import com.example.data.DeviceMapping
 import com.example.data.EqProfile
 import com.example.data.EqRepository
@@ -34,120 +32,35 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
 
     private val audioEngine = AudioEffectEngine.getInstance()
 
-    // Dolby Atmos & Dolby Audio Settings Local Storage (Persisted with SharedPreferences)
+    // Sound Booster Settings Local Storage (Persisted with SharedPreferences)
     private val prefs = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
 
-    private val _isDolbyEnabled = MutableStateFlow(prefs.getBoolean("is_dolby_enabled", false))
-    val isDolbyEnabled: StateFlow<Boolean> = _isDolbyEnabled.asStateFlow()
+    private val _isSoundBoosterEnabled = MutableStateFlow(prefs.getBoolean("is_sound_booster_enabled", false))
+    val isSoundBoosterEnabled: StateFlow<Boolean> = _isSoundBoosterEnabled.asStateFlow()
 
-    private val _dolbyMode = MutableStateFlow(prefs.getInt("dolby_mode", 1)) // Default: Music
-    val dolbyMode: StateFlow<Int> = _dolbyMode.asStateFlow()
+    private val _soundBoosterGainDb = MutableStateFlow(prefs.getFloat("sound_booster_gain_db", 6.0f)) // Default: 6dB
+    val soundBoosterGainDb: StateFlow<Float> = _soundBoosterGainDb.asStateFlow()
 
-    private val _dolbySurroundStrength = MutableStateFlow(prefs.getFloat("dolby_surround_strength", 600f))
-    val dolbySurroundStrength: StateFlow<Float> = _dolbySurroundStrength.asStateFlow()
-
-    private val _dolbyDialogueEnhancer = MutableStateFlow(prefs.getFloat("dolby_dialogue_enhancer", 400f))
-    val dolbyDialogueEnhancer: StateFlow<Float> = _dolbyDialogueEnhancer.asStateFlow()
-
-    private val _dolbyVolumeLeveler = MutableStateFlow(prefs.getBoolean("dolby_volume_leveler", true))
-    val dolbyVolumeLeveler: StateFlow<Boolean> = _dolbyVolumeLeveler.asStateFlow()
-
-    fun setDolbyEnabled(enabled: Boolean) {
-        _isDolbyEnabled.value = enabled
-        prefs.edit().putBoolean("is_dolby_enabled", enabled).apply()
-        applyDolbySoundStage()
+    fun setSoundBoosterEnabled(enabled: Boolean) {
+        _isSoundBoosterEnabled.value = enabled
+        prefs.edit().putBoolean("is_sound_booster_enabled", enabled).apply()
+        audioEngine.soundBoosterEnabled = enabled
+        
+        val updated = _currentProfile.value.copy(soundBoosterEnabled = enabled)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
-    fun setDolbyMode(mode: Int) {
-        _dolbyMode.value = mode
-        prefs.edit().putInt("dolby_mode", mode).apply()
-        applyDolbySoundStage()
-    }
-
-    fun setDolbySurroundStrength(strength: Float) {
-        _dolbySurroundStrength.value = strength
-        prefs.edit().putFloat("dolby_surround_strength", strength).apply()
-        applyDolbySoundStage()
-    }
-
-    fun setDolbyDialogueEnhancer(level: Float) {
-        _dolbyDialogueEnhancer.value = level
-        prefs.edit().putFloat("dolby_dialogue_enhancer", level).apply()
-        applyDolbySoundStage()
-    }
-
-    fun setDolbyVolumeLeveler(enabled: Boolean) {
-        _dolbyVolumeLeveler.value = enabled
-        prefs.edit().putBoolean("dolby_volume_leveler", enabled).apply()
-        applyDolbySoundStage()
-    }
-
-    private fun applyDolbySoundStage() {
-        val enabled = _isDolbyEnabled.value
-        if (enabled) {
-            val mode = _dolbyMode.value
-            val surround = _dolbySurroundStrength.value
-            val dialogue = _dolbyDialogueEnhancer.value
-            val leveler = _dolbyVolumeLeveler.value
-
-            // Setup custom DSP configurations representing the selected Dolby environment mode
-            var current = _currentProfile.value
-
-            // Movie, Music, Game, Voice, Custom
-            current = when (mode) {
-                0 -> { // Movie (सिनेमा) - Wide surround stage, rich deep theater rumble
-                    current.copy(
-                        virtualizer = surround.coerceIn(0f..1000f),
-                        reverbPreset = 4, // Medium Hall (Theater feel)
-                        bassBoost = 650f, // Cine-bass boost
-                        band1kHz = dialogue / 100f, // Dialog booster frequency
-                        band2kHz = (dialogue / 100f) * 1.5f,
-                        band4kHz = dialogue / 100f,
-                        limiterEnabled = leveler
-                    )
-                }
-                1 -> { // Music (संगीत) - Balanced, pure spatial detailing
-                    current.copy(
-                        virtualizer = (surround * 0.7f).coerceIn(0f..1000f),
-                        reverbPreset = 1, // Small Room (Acoustic feel)
-                        bassBoost = 350f,
-                        limiterEnabled = leveler
-                    )
-                }
-                2 -> { // Game (खेल) - 3D local positional cues, crisp footstep treble
-                    current.copy(
-                        virtualizer = (surround * 1.2f).coerceIn(0f..1000f),
-                        reverbPreset = 2, // Medium Room (Spatial)
-                        band4kHz = 3.0f,
-                        band8kHz = 5.0f,
-                        band16kHz = 6.0f,
-                        bassBoost = 500f,
-                        limiterEnabled = leveler
-                    )
-                }
-                3 -> { // Voice (स्पष्ट आवाज़) - Suppressed rumble, boosted mid-frequency voice bands
-                    current.copy(
-                        virtualizer = 0f,
-                        reverbPreset = 0, // No Hall
-                        bassBoost = 100f, // Low rumble
-                        band250Hz = 1.0f,
-                        band500Hz = 3.0f,
-                        band1kHz = (dialogue / 100f) * 2f,
-                        band2kHz = (dialogue / 100f) * 2.2f,
-                        band4kHz = (dialogue / 100f) * 1.8f,
-                        limiterEnabled = leveler
-                    )
-                }
-                else -> current // Custom - depends on normal profiles
-            }
-
-            // Apply Dolby virtualizer overlay and update active engine parameters
-            _currentProfile.value = current
-            audioEngine.updateActiveProfile(current)
-        } else {
-            // Dolby disabled, restore normal profile values
-            audioEngine.updateActiveProfile(_currentProfile.value)
-        }
+    fun setSoundBoosterGainDb(gain: Float) {
+        _soundBoosterGainDb.value = gain
+        prefs.edit().putFloat("sound_booster_gain_db", gain).apply()
+        audioEngine.soundBoosterGainDb = gain
+        
+        val updated = _currentProfile.value.copy(soundBoosterGainDb = gain)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     // Screen Tabs
@@ -232,19 +145,6 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
     }
 
-    // AutoEq features
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
-
-    private val _allHeadphones = MutableStateFlow(AutoEqData.headphoneList)
-    val filteredHeadphones: StateFlow<List<AutoEqHeadphone>> = combine(_searchQuery, _allHeadphones) { query, list ->
-        if (query.isBlank()) {
-            list
-        } else {
-            list.filter { it.fullName.contains(query, ignoreCase = true) }
-        }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AutoEqData.headphoneList)
-
     // Visualizers (waveform: 64 points, spectrum: 24 points)
     private val _waveformPoints = MutableStateFlow(FloatArray(64))
     val waveformPoints: StateFlow<FloatArray> = _waveformPoints.asStateFlow()
@@ -318,6 +218,8 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         }
 
         // Sync engine profile on initial launch
+        audioEngine.soundBoosterEnabled = _isSoundBoosterEnabled.value
+        audioEngine.soundBoosterGainDb = _soundBoosterGainDb.value
         audioEngine.setLegacyMode(true)
         audioEngine.updateActiveProfile(_currentProfile.value)
 
@@ -689,6 +591,17 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     // Toggle presets or custom EQ profiles
     fun selectActiveProfile(profile: EqProfile) {
         _currentProfile.value = profile
+        
+        // Also load custom Sound Booster values
+        _isSoundBoosterEnabled.value = profile.soundBoosterEnabled
+        _soundBoosterGainDb.value = profile.soundBoosterGainDb
+        prefs.edit()
+            .putBoolean("is_sound_booster_enabled", profile.soundBoosterEnabled)
+            .putFloat("sound_booster_gain_db", profile.soundBoosterGainDb)
+            .apply()
+        audioEngine.soundBoosterEnabled = profile.soundBoosterEnabled
+        audioEngine.soundBoosterGainDb = profile.soundBoosterGainDb
+
         audioEngine.updateActiveProfile(profile)
         
         // Auto-refresh device mapping matching the current connected bluetooth headset
@@ -709,7 +622,9 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
                 id = 0, // autoGenerate
                 name = profileName,
                 isCustom = true,
-                mediaType = mediaType
+                mediaType = mediaType,
+                soundBoosterEnabled = _isSoundBoosterEnabled.value,
+                soundBoosterGainDb = _soundBoosterGainDb.value
             )
             val insertId = repository.insertProfile(newProfile)
             val savedProfile = newProfile.copy(id = insertId.toInt())
@@ -753,10 +668,23 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             limiterThresholdDb = -3.0f,
             limiterRatio = 2.0f,
             limiterAttackMs = 5.0f,
-            limiterReleaseMs = 50.0f
+            limiterReleaseMs = 50.0f,
+            soundBoosterEnabled = false,
+            soundBoosterGainDb = 0f
         )
+        
+        _isSoundBoosterEnabled.value = false
+        _soundBoosterGainDb.value = 0f
+        prefs.edit()
+            .putBoolean("is_sound_booster_enabled", false)
+            .putFloat("sound_booster_gain_db", 0f)
+            .apply()
+        audioEngine.soundBoosterEnabled = false
+        audioEngine.soundBoosterGainDb = 0f
+
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
     }
 
     fun deleteCustomProfile(profile: EqProfile) {
@@ -808,109 +736,7 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         _visualizerStyle.value = style
     }
 
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-    }
 
-    // AutoEq load curve
-    fun loadAutoEqHeadphone(eq: AutoEqHeadphone) {
-        val current = _currentProfile.value
-        val updated = current.copy(
-            band60Hz = eq.gains[0],
-            band120Hz = eq.gains[1],
-            band250Hz = eq.gains[2],
-            band500Hz = eq.gains[3],
-            band1kHz = eq.gains[4],
-            band2kHz = eq.gains[5],
-            band4kHz = eq.gains[6],
-            band8kHz = eq.gains[7],
-            band16kHz = eq.gains[8]
-        )
-        // Set profile name indicating autoeq
-        val profileWithAutoEqName = updated.copy(
-            id = 0,
-            name = "AutoEq: ${eq.brand} ${eq.model}",
-            isCustom = true
-        )
-        viewModelScope.launch {
-            val insertId = repository.insertProfile(profileWithAutoEqName)
-            val finalProfile = profileWithAutoEqName.copy(id = insertId.toInt())
-            _currentProfile.value = finalProfile
-            audioEngine.updateActiveProfile(finalProfile)
-            
-            // Map connected device
-            val dev = _connectedDeviceName.value
-            if (dev.isNotBlank()) {
-                repository.insertDeviceMapping(DeviceMapping(dev, insertId.toInt()))
-            }
-        }
-    }
-
-    // Import from csv/squig text editor pasted data
-    fun importCustomAutoEqCurve(name: String, textData: String): Boolean {
-        if (name.isBlank() || textData.isBlank()) return false
-        
-        try {
-            val userFreqs = floatArrayOf(60f, 120f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f)
-            val parsedGains = FloatArray(9) { 0f }
-            val dataPoints = mutableListOf<Pair<Float, Float>>()
-
-            val lines = textData.lines()
-            for (line in lines) {
-                val cleaned = line.trim()
-                if (cleaned.startsWith("#") || cleaned.isBlank()) continue
-                
-                // match numbers (comma, tab, space, semi-colon separators)
-                val parts = cleaned.split(Regex("\\s+|,|;"))
-                if (parts.size >= 2) {
-                    val f = parts[0].toFloatOrNull()
-                    val g = parts[1].toFloatOrNull()
-                    if (f != null && g != null) {
-                        dataPoints.add(Pair(f, g))
-                    }
-                }
-            }
-
-            if (dataPoints.isEmpty()) return false
-
-            // Map standard frequencies by finding the closest parsed frequency
-            for (i in 0 until 9) {
-                val targetFreq = userFreqs[i]
-                val closestPoint = dataPoints.minByOrNull { Math.abs(it.first - targetFreq) }
-                parsedGains[i] = closestPoint?.second?.coerceIn(-15f, 15f) ?: 0f
-            }
-
-            val newProfile = EqProfile(
-                id = 0,
-                name = "Pasted: $name",
-                isCustom = true,
-                band60Hz = parsedGains[0],
-                band120Hz = parsedGains[1],
-                band250Hz = parsedGains[2],
-                band500Hz = parsedGains[3],
-                band1kHz = parsedGains[4],
-                band2kHz = parsedGains[5],
-                band4kHz = parsedGains[6],
-                band8kHz = parsedGains[7],
-                band16kHz = parsedGains[8]
-            )
-
-            viewModelScope.launch {
-                val insertId = repository.insertProfile(newProfile)
-                val finalProfile = newProfile.copy(id = insertId.toInt())
-                _currentProfile.value = finalProfile
-                audioEngine.updateActiveProfile(finalProfile)
-
-                val dev = _connectedDeviceName.value
-                if (dev.isNotBlank()) {
-                    repository.insertDeviceMapping(DeviceMapping(dev, insertId.toInt()))
-                }
-            }
-            return true
-        } catch (e: Exception) {
-            return false
-        }
-    }
 }
 
 class EqViewModelFactory(private val repository: EqRepository, private val context: Context) : ViewModelProvider.Factory {

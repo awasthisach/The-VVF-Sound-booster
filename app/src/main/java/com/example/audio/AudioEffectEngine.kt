@@ -104,6 +104,12 @@ class AudioEffectEngine private constructor() {
     @Volatile
     private var isLegacyModeEnabled = true
 
+    @Volatile
+    var soundBoosterEnabled = false
+
+    @Volatile
+    var soundBoosterGainDb = 0f
+
     private val _activePlaybackApp = MutableStateFlow<String?>(null)
     val activePlaybackApp: StateFlow<String?> = _activePlaybackApp
 
@@ -322,10 +328,11 @@ class AudioEffectEngine private constructor() {
                 leftBalanceWeight = -profile.channelBalance * 10f
             }
 
-            val finalLeftGain = attenuationDb + leftBalanceWeight
-            val finalRightGain = attenuationDb + rightBalanceWeight
+            val boosterBoost = if (soundBoosterEnabled) soundBoosterGainDb else 0f
+            val finalLeftGain = attenuationDb + leftBalanceWeight + boosterBoost
+            val finalRightGain = attenuationDb + rightBalanceWeight + boosterBoost
 
-            val finalLimiterEnabled = profile.limiterEnabled || profile.automatedGainControlEnabled || profile.masterNormalizationEnabled
+            val finalLimiterEnabled = profile.limiterEnabled || profile.automatedGainControlEnabled || profile.masterNormalizationEnabled || (soundBoosterEnabled && soundBoosterGainDb > 0f)
 
             val builder = DynamicsProcessing.Config.Builder(
                 0, // preferredFrameDuration
