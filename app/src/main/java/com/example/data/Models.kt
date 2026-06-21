@@ -56,7 +56,8 @@ data class EqProfile(
 
     // Saved Custom Sound Booster parameters per preset
     val soundBoosterEnabled: Boolean = false,
-    val soundBoosterGainDb: Float = 0f
+    val soundBoosterGainDb: Float = 0f,
+    val soundBoosterLimiterEnabled: Boolean = true
 ) {
     fun toBandArray(): FloatArray {
         return floatArrayOf(

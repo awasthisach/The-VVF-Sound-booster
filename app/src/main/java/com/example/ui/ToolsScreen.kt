@@ -38,6 +38,7 @@ fun ToolsScreen(viewModel: EqViewModel) {
     
     val isSoundBoosterEnabled by viewModel.isSoundBoosterEnabled.collectAsState()
     val soundBoosterGainDb by viewModel.soundBoosterGainDb.collectAsState()
+    val isSoundBoosterLimiterEnabled by viewModel.isSoundBoosterLimiterEnabled.collectAsState()
 
     val scrollState = rememberScrollState()
 
@@ -141,7 +142,7 @@ fun ToolsScreen(viewModel: EqViewModel) {
                             border = BorderStroke(1.dp, Color(0xFFFF8F00).copy(alpha = 0.3f)),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(bottom = 16.dp)
+                                .padding(bottom = 12.dp)
                         ) {
                             Row(
                                 modifier = Modifier.padding(12.dp),
@@ -163,6 +164,42 @@ fun ToolsScreen(viewModel: EqViewModel) {
                             }
                         }
 
+                        // Peak Limiter/Clipping Protection toggle row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "पीक लिमिटर / क्लिपिंग सुरक्षा (Peak Limiter)",
+                                    color = Color(0xFFE6E1E5),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "अधिकतम बूस्ट स्तर पर ध्वनि विरूपण (distortion) को रोकें",
+                                    color = Color(0xFF938F99),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = isSoundBoosterLimiterEnabled,
+                                onCheckedChange = { viewModel.setSoundBoosterLimiterEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF4E2600),
+                                    checkedTrackColor = Color(0xFFFFB300),
+                                    uncheckedThumbColor = Color(0xFF938F99),
+                                    uncheckedTrackColor = Color(0xFF2B2930)
+                                ),
+                                modifier = Modifier.testTag("sound_booster_limiter_switch")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         // Booster Gain Slider
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -175,9 +212,9 @@ fun ToolsScreen(viewModel: EqViewModel) {
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                            val multiplier = 100 + (soundBoosterGainDb * 10).toInt()
+                            val amplitudePercent = (Math.pow(10.0, (soundBoosterGainDb.coerceIn(0f, 6f)).toDouble() / 20.0) * 100).toInt()
                             Text(
-                                text = String.format(Locale.US, "+%.1f dB (%d%%)", soundBoosterGainDb, multiplier),
+                                text = String.format(Locale.US, "+%.1f dB (%d%% Amplitude)", soundBoosterGainDb.coerceIn(0f, 6f), amplitudePercent),
                                 color = Color(0xFFFFB300),
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 12.sp,
@@ -186,9 +223,9 @@ fun ToolsScreen(viewModel: EqViewModel) {
                         }
                         
                         Slider(
-                            value = soundBoosterGainDb,
+                            value = soundBoosterGainDb.coerceIn(0f, 6f),
                             onValueChange = { viewModel.setSoundBoosterGainDb(it) },
-                            valueRange = 0f..15f,
+                            valueRange = 0f..6f,
                             colors = SliderDefaults.colors(
                                 thumbColor = Color(0xFFFFB300),
                                 activeTrackColor = Color(0xFFFFB300),
@@ -201,9 +238,9 @@ fun ToolsScreen(viewModel: EqViewModel) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("0 dB (सामान्य)", color = Color(0xFF938F99), fontSize = 10.sp)
-                            Text("+7.5 dB (मीडियम)", color = Color(0xFF938F99), fontSize = 10.sp)
-                            Text("+15 dB (सुपर बूस्ट!)", color = Color(0xFFFFB300), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("0 dB (100% - सामान्य)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+3.0 dB (141% - मध्यम)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+6.0 dB (200% - पूर्ण बूस्ट!)", color = Color(0xFFFFB300), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

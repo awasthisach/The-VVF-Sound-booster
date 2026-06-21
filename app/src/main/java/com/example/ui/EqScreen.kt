@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -151,6 +153,7 @@ fun EqScreen(viewModel: EqViewModel) {
     val visualizerStyle by viewModel.visualizerStyle.collectAsState()
     val isSoundBoosterEnabled by viewModel.isSoundBoosterEnabled.collectAsState()
     val soundBoosterGainDb by viewModel.soundBoosterGainDb.collectAsState()
+    val isSoundBoosterLimiterEnabled by viewModel.isSoundBoosterLimiterEnabled.collectAsState()
 
     var showSaveDialog by remember { mutableStateOf(false) }
     var newProfileName by remember { mutableStateOf("") }
@@ -223,7 +226,7 @@ fun EqScreen(viewModel: EqViewModel) {
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = String.format(Locale.US, "SOUND BOOSTER • ACTIVE (+%.1f dB)", soundBoosterGainDb),
+                                    text = String.format(Locale.US, "SOUND BOOSTER • ACTIVE (+%.1f dB)", soundBoosterGainDb.coerceIn(0f, 6f)),
                                     fontSize = 9.sp,
                                     color = Color(0xFFFFCC80),
                                     fontWeight = FontWeight.Bold
@@ -623,6 +626,195 @@ fun EqScreen(viewModel: EqViewModel) {
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Sound / Volume Booster Card directly on Main Screen
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp)
+                .testTag("eq_screen_sound_booster_card"),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSoundBoosterEnabled) Color(0xFF2E1F1A) else Color(0xFF23222B)
+            ),
+            border = BorderStroke(1.dp, if (isSoundBoosterEnabled) Color(0xFFFF8F00) else Color(0xFF49454F))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Main Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = "Sound Booster",
+                            tint = if (isSoundBoosterEnabled) Color(0xFFFFB300) else Color(0xFF938F99),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "वॉल्यूम बूस्टर (Volume Booster)",
+                                color = if (isSoundBoosterEnabled) Color.White else Color(0xFFE6E1E5),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = if (isSoundBoosterEnabled) "अतिरिक्त लाउडनेस बूस्ट सक्षम है" else "बूस्टर निष्क्रिय है (0 dB)",
+                                color = if (isSoundBoosterEnabled) Color(0xFFFFB300) else Color(0xFF938F99),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = isSoundBoosterEnabled,
+                        onCheckedChange = { viewModel.setSoundBoosterEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF4E2600),
+                            checkedTrackColor = Color(0xFFFFB300),
+                            uncheckedThumbColor = Color(0xFF938F99),
+                            uncheckedTrackColor = Color(0xFF2B2930)
+                        ),
+                        modifier = Modifier.testTag("eq_sound_booster_switch")
+                    )
+                }
+
+                AnimatedVisibility(visible = isSoundBoosterEnabled) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        // Horizontal divider line
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFF49454F).copy(alpha = 0.5f))
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Protection/Warning indicator
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFF8F00).copy(alpha = 0.1f)
+                            ),
+                            border = BorderStroke(1.dp, Color(0xFFFF8F00).copy(alpha = 0.3f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Hearing,
+                                    contentDescription = "Hearing Protect",
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = "सुरक्षा चेतावनी: कान और स्पीकर हित में कृपया अधिक समय तक निरंतर अधिकतम बूस्ट स्तर पर न सुनें।",
+                                    color = Color(0xFFFFE082),
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                )
+                            }
+                        }
+
+                        // Peak Limiter/Clipping Protection toggle row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "पीक लिमिटर / क्लिपिंग सुरक्षा (Peak Limiter)",
+                                    color = Color(0xFFE6E1E5),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "अधिकतम बूस्ट स्तर पर ध्वनि विरूपण (distortion) को रोकें",
+                                    color = Color(0xFF938F99),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Switch(
+                                checked = isSoundBoosterLimiterEnabled,
+                                onCheckedChange = { viewModel.setSoundBoosterLimiterEnabled(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF4E2600),
+                                    checkedTrackColor = Color(0xFFFFB300),
+                                    uncheckedThumbColor = Color(0xFF938F99),
+                                    uncheckedTrackColor = Color(0xFF2B2930)
+                                ),
+                                modifier = Modifier.testTag("eq_sound_booster_limiter_switch")
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Booster Gain Slider
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "बूस्टर पावर लेवल (Booster Intensity)",
+                                color = Color(0xFFE6E1E5),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            val amplitudePercent = (Math.pow(10.0, (soundBoosterGainDb.coerceIn(0f, 6f)).toDouble() / 20.0) * 100).toInt()
+                            Text(
+                                text = String.format(Locale.US, "+%.1f dB (%d%% Amplitude)", soundBoosterGainDb.coerceIn(0f, 6f), amplitudePercent),
+                                color = Color(0xFFFFB300),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Slider(
+                            value = soundBoosterGainDb.coerceIn(0f, 6f),
+                            onValueChange = { viewModel.setSoundBoosterGainDb(it) },
+                            valueRange = 0f..6f,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFFFB300),
+                                activeTrackColor = Color(0xFFFFB300),
+                                inactiveTrackColor = Color(0xFF49454F)
+                            ),
+                            modifier = Modifier.testTag("eq_sound_booster_slider")
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("0 dB (100% - सामान्य)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+3.0 dB (141% - मध्यम)", color = Color(0xFF938F99), fontSize = 10.sp)
+                            Text("+6.0 dB (200% - पूर्ण बूस्ट!)", color = Color(0xFFFFB300), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // 4. 2D Graphic EQ sliders Container
         Text(

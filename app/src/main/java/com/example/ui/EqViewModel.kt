@@ -41,6 +41,9 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
     private val _soundBoosterGainDb = MutableStateFlow(prefs.getFloat("sound_booster_gain_db", 6.0f)) // Default: 6dB
     val soundBoosterGainDb: StateFlow<Float> = _soundBoosterGainDb.asStateFlow()
 
+    private val _isSoundBoosterLimiterEnabled = MutableStateFlow(prefs.getBoolean("sound_booster_limiter_enabled", true))
+    val isSoundBoosterLimiterEnabled: StateFlow<Boolean> = _isSoundBoosterLimiterEnabled.asStateFlow()
+
     fun setSoundBoosterEnabled(enabled: Boolean) {
         _isSoundBoosterEnabled.value = enabled
         prefs.edit().putBoolean("is_sound_booster_enabled", enabled).apply()
@@ -58,6 +61,17 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         audioEngine.soundBoosterGainDb = gain
         
         val updated = _currentProfile.value.copy(soundBoosterGainDb = gain)
+        _currentProfile.value = updated
+        audioEngine.updateActiveProfile(updated)
+        saveActiveProfileToDb(updated)
+    }
+
+    fun setSoundBoosterLimiterEnabled(enabled: Boolean) {
+        _isSoundBoosterLimiterEnabled.value = enabled
+        prefs.edit().putBoolean("sound_booster_limiter_enabled", enabled).apply()
+        audioEngine.soundBoosterLimiterEnabled = enabled
+        
+        val updated = _currentProfile.value.copy(soundBoosterLimiterEnabled = enabled)
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
         saveActiveProfileToDb(updated)
@@ -220,6 +234,7 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         // Sync engine profile on initial launch
         audioEngine.soundBoosterEnabled = _isSoundBoosterEnabled.value
         audioEngine.soundBoosterGainDb = _soundBoosterGainDb.value
+        audioEngine.soundBoosterLimiterEnabled = _isSoundBoosterLimiterEnabled.value
         audioEngine.setLegacyMode(true)
         audioEngine.updateActiveProfile(_currentProfile.value)
 
@@ -595,12 +610,15 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
         // Also load custom Sound Booster values
         _isSoundBoosterEnabled.value = profile.soundBoosterEnabled
         _soundBoosterGainDb.value = profile.soundBoosterGainDb
+        _isSoundBoosterLimiterEnabled.value = profile.soundBoosterLimiterEnabled
         prefs.edit()
             .putBoolean("is_sound_booster_enabled", profile.soundBoosterEnabled)
             .putFloat("sound_booster_gain_db", profile.soundBoosterGainDb)
+            .putBoolean("sound_booster_limiter_enabled", profile.soundBoosterLimiterEnabled)
             .apply()
         audioEngine.soundBoosterEnabled = profile.soundBoosterEnabled
         audioEngine.soundBoosterGainDb = profile.soundBoosterGainDb
+        audioEngine.soundBoosterLimiterEnabled = profile.soundBoosterLimiterEnabled
 
         audioEngine.updateActiveProfile(profile)
         
@@ -624,7 +642,8 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
                 isCustom = true,
                 mediaType = mediaType,
                 soundBoosterEnabled = _isSoundBoosterEnabled.value,
-                soundBoosterGainDb = _soundBoosterGainDb.value
+                soundBoosterGainDb = _soundBoosterGainDb.value,
+                soundBoosterLimiterEnabled = _isSoundBoosterLimiterEnabled.value
             )
             val insertId = repository.insertProfile(newProfile)
             val savedProfile = newProfile.copy(id = insertId.toInt())
@@ -670,17 +689,21 @@ class EqViewModel(private val repository: EqRepository, private val context: Con
             limiterAttackMs = 5.0f,
             limiterReleaseMs = 50.0f,
             soundBoosterEnabled = false,
-            soundBoosterGainDb = 0f
+            soundBoosterGainDb = 0f,
+            soundBoosterLimiterEnabled = true
         )
         
         _isSoundBoosterEnabled.value = false
         _soundBoosterGainDb.value = 0f
+        _isSoundBoosterLimiterEnabled.value = true
         prefs.edit()
             .putBoolean("is_sound_booster_enabled", false)
             .putFloat("sound_booster_gain_db", 0f)
+            .putBoolean("sound_booster_limiter_enabled", true)
             .apply()
         audioEngine.soundBoosterEnabled = false
         audioEngine.soundBoosterGainDb = 0f
+        audioEngine.soundBoosterLimiterEnabled = true
 
         _currentProfile.value = updated
         audioEngine.updateActiveProfile(updated)
