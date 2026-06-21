@@ -151,7 +151,14 @@ class AudioEffectEngine private constructor() {
 
     fun registerSession(sessionId: Int, source: String = "Unknown") {
         if (sessionId < 0) return
-        if (activeSessions.containsKey(sessionId)) return
+        
+        if (activeSessions.containsKey(sessionId)) {
+            activeSessions[sessionId]?.let { effects ->
+                Log.d("AudioEffectEngine", "Session $sessionId already registered. Re-applying current booster configurations.")
+                applyCurrentConfiguration(effects)
+            }
+            return
+        }
 
         Log.d("AudioEffectEngine", "Registering audio session $sessionId from $source")
         try {
@@ -227,6 +234,9 @@ class AudioEffectEngine private constructor() {
                 val vocalFactor = vocalBoostPercent / 100f
                 val eqBassFactor = eqBassBoostLevelPercent / 100f
 
+                // Convert our master volume booster to a global gain offset (0% to 100% booster maps to 0 to 12.0 dB increase on all bands)
+                val masterBoostDbOffset = (masterVolumeBoostPercent / 100f) * 12.0f
+
                 for (b in 0 until numBands) {
                     val centerMilliHz = eq.getCenterFreq(b.toShort())
                     val centerHz = centerMilliHz / 1000f
@@ -247,7 +257,11 @@ class AudioEffectEngine private constructor() {
                         gainDb = 15.0f * eqBassFactor
                     }
 
-                    val levelMillibels = (gainDb * 100f).coerceIn(-1500f, 1500f).toInt().toShort()
+                    // Add master boost offset to all bands to perform universal hardware preamp amplification
+                    val finalGainDb = gainDb + masterBoostDbOffset
+
+                    // Convert to millibels (1 dB = 100 mB) and keep within Android's safe +/- 15.0 dB limits
+                    val levelMillibels = (finalGainDb * 100f).coerceIn(-1500f, 1500f).toInt().toShort()
                     eq.setBandLevel(b.toShort(), levelMillibels)
                 }
             } catch (e: Exception) {
@@ -269,13 +283,15 @@ class AudioEffectEngine private constructor() {
                 AudioEffectEngine.getInstance().incrementGuardianInterventions()
             }
             try {
-                bassBoost = BassBoost(0, sessionId).apply { enabled = true }
+                // Priority set to 1000 to override device/vendor level system presets (e.g. Motorola Dolby)
+                bassBoost = BassBoost(1000, sessionId).apply { enabled = true }
             } catch (e: Exception) {
                 Log.e("SessionEffects", "Could not initialize BassBoost on session $sessionId")
                 AudioEffectEngine.getInstance().incrementGuardianInterventions()
             }
             try {
-                equalizer = Equalizer(0, sessionId).apply { enabled = true }
+                // Priority set to 1000 to override device/vendor level system presets
+                equalizer = Equalizer(1000, sessionId).apply { enabled = true }
             } catch (e: Exception) {
                 Log.e("SessionEffects", "Could not initialize Equalizer on session $sessionId")
                 AudioEffectEngine.getInstance().incrementGuardianInterventions()

@@ -10,8 +10,11 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,11 +26,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.net.Uri
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -97,6 +106,83 @@ fun BoosterMainScreen() {
 
     // Pulse animation helper state to represent working dsp engine
     var animatePulse by remember { mutableStateOf(1f) }
+
+    // In-App Test Player State
+    var isTestPlaying by remember { mutableStateOf(false) }
+    var testPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var selectedTrackIndex by remember { mutableStateOf(0) }
+    val testTracks = remember {
+        listOf(
+            "ऑफ़लाइन रिंगटोन (Local Tone Loop)" to "offline_ringtone",
+            "क्लाउड हेवी बास बीट्स (Cloud Bass)" to "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+            "क्लाउड वोकल पॉडकास्ट (Voice Anchor)" to "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+        )
+    }
+
+    val playTestTrack = remember(selectedTrackIndex, isTestPlaying) {
+        {
+            testPlayer?.let {
+                try {
+                    if (it.isPlaying) {
+                        it.stop()
+                    }
+                    it.release()
+                } catch (e: Exception) {}
+            }
+            testPlayer = null
+
+            if (isTestPlaying) {
+                try {
+                    val player = MediaPlayer()
+                    val currentTrack = testTracks[selectedTrackIndex]
+                    if (currentTrack.second == "offline_ringtone") {
+                        val alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) 
+                            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        player.setDataSource(context, alertUri)
+                    } else {
+                        player.setDataSource(context, Uri.parse(currentTrack.second))
+                    }
+                    player.isLooping = true
+                    player.prepareAsync()
+                    player.setOnPreparedListener { mp ->
+                        if (isTestPlaying) {
+                            audioEngine.registerSession(mp.audioSessionId, "VVF Test Player")
+                            mp.start()
+                        }
+                    }
+                    testPlayer = player
+                } catch (e: Exception) {
+                    android.util.Log.e("MainActivity", "Failed to load/play test audio: ${e.message}")
+                }
+            }
+        }
+    }
+
+    val stopTestTrack = remember {
+        {
+            testPlayer?.let {
+                try {
+                    if (it.isPlaying) {
+                        it.stop()
+                    }
+                    audioEngine.unregisterSession(it.audioSessionId)
+                    it.release()
+                } catch (e: Exception) {}
+            }
+            testPlayer = null
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            testPlayer?.let {
+                try {
+                    it.stop()
+                    it.release()
+                } catch (e: Exception) {}
+            }
+        }
+    }
 
     // Keep system volume updated when changed externally
     LaunchedEffect(Unit) {
@@ -272,7 +358,7 @@ fun BoosterMainScreen() {
                         // Slider A: Vertical Software-based Volume/Voice Booster (0% to 100%)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
                             Text(
                                 text = "LOUDEST BOOST",
@@ -291,11 +377,11 @@ fun BoosterMainScreen() {
                             
                             Box(
                                 modifier = Modifier
-                                    .height(180.dp)
-                                    .padding(vertical = 4.dp),
+                                    .weight(1f)
+                                    .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Slider(
+                                CustomVerticalSlider(
                                     value = masterBoost,
                                     onValueChange = { newVal ->
                                         if (newVal > 40f && masterBoost <= 40f) {
@@ -312,17 +398,11 @@ fun BoosterMainScreen() {
                                     },
                                     valueRange = 0f..100f,
                                     enabled = isEnabled,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = if (masterBoost > 40f) Color(0xFFFF5252) else Color(0xFFFF9E00),
-                                        activeTrackColor = if (masterBoost > 40f) Color(0xFFFF5252) else Color(0xFFFF9E00),
-                                        inactiveTrackColor = Color(0xFF2B2939)
+                                    activeBrush = Brush.verticalGradient(
+                                        listOf(Color(0xFF8A2BE2), Color(0xFFFF9E00))
                                     ),
-                                    modifier = Modifier
-                                        .width(150.dp)
-                                        .graphicsLayer {
-                                            rotationZ = -90f
-                                        }
-                                        .testTag("loud_volume_slider")
+                                    inactiveColor = Color(0xFF2B2939),
+                                    modifier = Modifier.testTag("loud_volume_slider")
                                 )
                             }
                             
@@ -339,6 +419,7 @@ fun BoosterMainScreen() {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
+                                .padding(vertical = 16.dp)
                                 .width(1.dp)
                                 .background(Color(0xFF262435))
                         )
@@ -346,7 +427,7 @@ fun BoosterMainScreen() {
                         // Slider B: Vertical Stream Volume Control (0% to 100%)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).fillMaxHeight()
                         ) {
                             Text(
                                 text = "STREAM MUSIC",
@@ -365,28 +446,23 @@ fun BoosterMainScreen() {
                             
                             Box(
                                 modifier = Modifier
-                                    .height(180.dp)
-                                    .padding(vertical = 4.dp),
+                                    .weight(1f)
+                                    .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Slider(
+                                CustomVerticalSlider(
                                     value = currentSysVolume.toFloat(),
                                     onValueChange = { newVal ->
                                         currentSysVolume = newVal.toInt()
                                         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVal.toInt(), 0)
                                     },
                                     valueRange = 0f..maxSysVolume.toFloat(),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = Color(0xFFFFEE58),
-                                        activeTrackColor = Color(0xFFFFEE58),
-                                        inactiveTrackColor = Color(0xFF2B2939)
+                                    enabled = true,
+                                    activeBrush = Brush.verticalGradient(
+                                        listOf(Color(0xFFFFEE58), Color(0xFFFF9E00))
                                     ),
-                                    modifier = Modifier
-                                        .width(150.dp)
-                                        .graphicsLayer {
-                                            rotationZ = -90f
-                                        }
-                                        .testTag("system_volume_slider")
+                                    inactiveColor = Color(0xFF2B2939),
+                                    modifier = Modifier.testTag("system_volume_slider")
                                 )
                             }
 
@@ -398,6 +474,233 @@ fun BoosterMainScreen() {
                                 fontFamily = FontFamily.Monospace
                             )
                         }
+                    }
+                }
+            }
+
+            // 2.5 In-App Audio Test Player (परीक्षण प्लेयर)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color(0xFF3B2961)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1D142E))
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🔊 बूस्टर परीक्षण ध्वनि (IN-APP TEST ENGINE)",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "आवाज़ में भारीपन और बदलाव को तुरंत सुनने के लिए प्ले करें",
+                                color = Color(0xFFBCAAA4),
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                isTestPlaying = !isTestPlaying
+                                if (isTestPlaying) {
+                                    playTestTrack()
+                                } else {
+                                    stopTestTrack()
+                                }
+                            },
+                            colors = IconButtonDefaults.iconButtonColors(
+                                containerColor = if (isTestPlaying) Color(0xFFFF5252) else Color(0xFF00E676),
+                                contentColor = Color.Black
+                            ),
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isTestPlaying) Icons.Filled.Stop else Icons.Filled.PlayArrow,
+                                contentDescription = if (isTestPlaying) "Stop Test" else "Play Test",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "परीक्षण ट्रैक चुनें (Select Test Track):",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        testTracks.forEachIndexed { index, track ->
+                            val isSelected = selectedTrackIndex == index
+                            Button(
+                                onClick = {
+                                    selectedTrackIndex = index
+                                    if (isTestPlaying) {
+                                        playTestTrack()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) Color(0xFF8A2BE2) else Color(0xFF261D3A),
+                                    contentColor = if (isSelected) Color.White else Color(0xFFBCAAA4)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f).height(38.dp)
+                            ) {
+                                Text(
+                                    text = track.first.split(" ")[0], // Use first short word
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+
+                    // Music Wave Visualizer simulation when test is active
+                    if (isTestPlaying) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(20.dp)
+                                .background(Color(0xFF130B22), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF281C3D), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "बज रहा है... (PLAYING & ENHANCING)",
+                                color = Color(0xFF00E676),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                repeat(5) { barIndex ->
+                                    val barHeight = remember { mutableStateOf(5f) }
+                                    LaunchedEffect(isTestPlaying) {
+                                        while (isTestPlaying) {
+                                            barHeight.value = kotlin.random.Random.nextFloat() * 15f + 10f
+                                            delay(150L + (barIndex * 30))
+                                        }
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .width(3.dp)
+                                            .height(barHeight.value.dp)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color(0xFF00E676), Color(0xFF9E84FF))
+                                                ),
+                                                RoundedCornerShape(1.dp)
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2.8 Dynamic Sync & Troubleshooting Guide (साउंड सिंक एवं सहायता गाइड)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.5.dp, Color(0xFF4A148C).copy(alpha = 0.5f)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF160E25))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Sync Info",
+                            tint = Color(0xFFA877FF),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "🛠️ अन्य ऐप्स से आवाज़ कैसे बढ़ाएं? (SYNC GUIDE)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "• ऑटो-सक्रिय (Auto-Booster):\nहमारी AI बैकग्राउंड सेवा YouTube, Spotify और अन्य मीडिया खिलाड़ियों को अपने आप पकड़ लेती है।",
+                        color = Color(0xFFE1BEE7),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Text(
+                        text = "• यदि आवाज़ न बढ़े (Troubleshoot):\nसंगीत ऐप (उदा. Spotify) की Settings में जाएं और 'Equalizer' विकल्प पर टैप करें। यह तुरंत इस बूस्टर टनल को सक्रिय कर देगा!",
+                        color = Color(0xFFE1BEE7),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    Button(
+                        onClick = {
+                            try {
+                                audioEngine.setLegacyMode(false)
+                                audioEngine.setLegacyMode(true)
+                                audioEngine.applyAllCurrentStyles()
+                                android.widget.Toast.makeText(
+                                    context, 
+                                    "साउंड टनल रीफ्रेश सफल! सभी ऐप्स बूस्टेड हैं। ⚡", 
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Failed to refresh sound tunnel: ${e.message}")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF7B1FA2),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(38.dp)
+                    ) {
+                        Text(
+                            text = "🔄 कनेक्शन रीफ्रेश करें (RESET SOUND TUNNEL)",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
             }
@@ -757,5 +1060,93 @@ fun BoosterMainScreen() {
             containerColor = Color(0xFF1F1D2C),
             shape = RoundedCornerShape(20.dp)
         )
+    }
+}
+
+@Composable
+fun CustomVerticalSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..100f,
+    enabled: Boolean = true,
+    activeBrush: Brush,
+    inactiveColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val rangeSize = valueRange.endInclusive - valueRange.start
+
+    BoxWithConstraints(
+        modifier = modifier
+            .width(64.dp)
+            .fillMaxHeight()
+            .pointerInput(enabled, value) {
+                if (!enabled) return@pointerInput
+                detectTapGestures { offset ->
+                    val fraction = ((size.height - offset.y) / size.height).coerceIn(0f, 1f)
+                    val newValue = valueRange.start + fraction * rangeSize
+                    onValueChange(newValue)
+                }
+            }
+            .pointerInput(enabled, value) {
+                if (!enabled) return@pointerInput
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    val fractionDelta = -dragAmount.y / size.height
+                    val valueDelta = fractionDelta * rangeSize
+                    val newValue = (value + valueDelta).coerceIn(valueRange.start, valueRange.endInclusive)
+                    onValueChange(newValue)
+                }
+            }
+    ) {
+        val totalHeight = constraints.maxHeight.toFloat()
+        val totalWidth = constraints.maxWidth.toFloat()
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val trackWidth = 14.dp.toPx()
+            val thumbRadius = 13.dp.toPx()
+
+            val xCenter = totalWidth / 2f
+
+            // Draw base track (inactive)
+            drawRoundRect(
+                color = if (enabled) inactiveColor else inactiveColor.copy(alpha = 0.5f),
+                topLeft = Offset(xCenter - trackWidth / 2f, thumbRadius),
+                size = androidx.compose.ui.geometry.Size(trackWidth, totalHeight - 2 * thumbRadius),
+                cornerRadius = CornerRadius(trackWidth / 2f, trackWidth / 2f)
+            )
+
+            // Calculate current slider placement fraction
+            val currentFraction = ((value - valueRange.start) / rangeSize).coerceIn(0f, 1f)
+            val thumbY = totalHeight - thumbRadius - currentFraction * (totalHeight - 2 * thumbRadius)
+
+            // Draw active (filled) portion with smooth gradient brush
+            drawRoundRect(
+                brush = if (enabled) activeBrush else Brush.linearGradient(listOf(Color(0xFF4C4C4C), Color(0xFF4C4C4C))),
+                topLeft = Offset(xCenter - trackWidth / 2f, thumbY),
+                size = androidx.compose.ui.geometry.Size(trackWidth, totalHeight - thumbRadius - thumbY),
+                cornerRadius = CornerRadius(trackWidth / 2f, trackWidth / 2f)
+            )
+
+            // Draw outer thumb highlight aura
+            drawCircle(
+                color = if (enabled) Color.White.copy(alpha = 0.12f) else Color.Transparent,
+                radius = thumbRadius + 5.dp.toPx(),
+                center = Offset(xCenter, thumbY)
+            )
+
+            // Draw inner solid volume indicator thumb
+            drawCircle(
+                brush = if (enabled) activeBrush else Brush.linearGradient(listOf(Color(0xFF6E6E6E), Color(0xFF6E6E6E))),
+                radius = thumbRadius,
+                center = Offset(xCenter, thumbY)
+            )
+
+            // Draw core white anchor dot
+            drawCircle(
+                color = if (enabled) Color.White else Color(0xFF9EA3B0),
+                radius = thumbRadius / 2.5f,
+                center = Offset(xCenter, thumbY)
+            )
+        }
     }
 }

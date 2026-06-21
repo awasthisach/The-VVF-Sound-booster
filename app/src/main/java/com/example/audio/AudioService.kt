@@ -34,7 +34,7 @@ class AudioService : Service() {
             startForeground(NOTIFICATION_ID, buildNotification())
         }
 
-        // Register receiver for broadcast audio sessions
+        // 1. Register receiver for broadcast audio sessions (legacy/explicit triggers)
         sessionReceiver = AudioSessionReceiver()
         val filter = IntentFilter().apply {
             addAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
@@ -70,7 +70,7 @@ class AudioService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Vivad Sound Equalizer Service"
+            val name = "VVF Sound Equalizer Service"
             val descriptionText = "Equalizer background active status"
             val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
@@ -97,8 +97,8 @@ class AudioService : Service() {
         }
 
         return builder
-            .setContentTitle("Vivad Sound Equalizer")
-            .setContentText("System-wide audio optimization is active.")
+            .setContentTitle("VVF Sound Equalizer")
+            .setContentText("System-wide audio optimization is active. (सक्रिय है)")
             .setSmallIcon(android.R.drawable.sym_def_app_icon)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
