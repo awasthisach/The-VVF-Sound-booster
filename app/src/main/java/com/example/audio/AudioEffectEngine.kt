@@ -203,10 +203,10 @@ class AudioEffectEngine private constructor() {
         // 1. Loudness Enhancer (The real Goodev booster!)
         effects.loudnessEnhancer?.let { le ->
             try {
-                le.enabled = true
                 // Convert booster percentage to millibels. Max 30 dB (3000 millibels)
                 val targetGainMb = ((masterVolumeBoostPercent / 100f) * 3000f).toInt().coerceIn(0, 3000)
                 le.setTargetGain(targetGainMb)
+                le.enabled = true
             } catch (e: Exception) {
                 Log.e("AudioEffectEngine", "LoudnessEnhancer fail: ${e.message}")
             }
@@ -234,6 +234,15 @@ class AudioEffectEngine private constructor() {
                 val vocalFactor = vocalBoostPercent / 100f
                 val eqBassFactor = eqBassBoostLevelPercent / 100f
 
+                // Query precise hardware supported range to prevent system level IllegalArgumentExceptions
+                val bandRange = try {
+                    eq.bandLevelRange
+                } catch (ex: Exception) {
+                    shortArrayOf(-1500, 1500)
+                }
+                val minLevel = if (bandRange.size >= 2) bandRange[0] else -1500.toShort()
+                val maxLevel = if (bandRange.size >= 2) bandRange[1] else 1500.toShort()
+
                 // Convert our master volume booster to a global gain offset (0% to 100% booster maps to 0 to 12.0 dB increase on all bands)
                 val masterBoostDbOffset = (masterVolumeBoostPercent / 100f) * 12.0f
 
@@ -260,8 +269,8 @@ class AudioEffectEngine private constructor() {
                     // Add master boost offset to all bands to perform universal hardware preamp amplification
                     val finalGainDb = gainDb + masterBoostDbOffset
 
-                    // Convert to millibels (1 dB = 100 mB) and keep within Android's safe +/- 15.0 dB limits
-                    val levelMillibels = (finalGainDb * 100f).coerceIn(-1500f, 1500f).toInt().toShort()
+                    // Convert to millibels (1 dB = 100 mB) and keep within Android's safe levels
+                    val levelMillibels = (finalGainDb * 100f).toInt().coerceIn(minLevel.toInt(), maxLevel.toInt()).toShort()
                     eq.setBandLevel(b.toShort(), levelMillibels)
                 }
             } catch (e: Exception) {

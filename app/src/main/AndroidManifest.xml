@@ -36,6 +36,15 @@
             android:foregroundServiceType="mediaProcessing"
             android:exported="false" />
 
+        <receiver
+            android:name=".audio.AudioSessionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.audiofx.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
+                <action android:name="android.media.audiofx.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />
+            </intent-filter>
+        </receiver>
+
         <service
             android:name=".audio.AudioSessionNotificationListener"
             android:label="विवाद साउंड एक्टिविटी"
